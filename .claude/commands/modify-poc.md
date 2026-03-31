@@ -1,6 +1,6 @@
 ---
 description: Implement stakeholder-requested changes to the POC with full tracking
-model: claude-opus-4-5-20251101
+model: claude-opus-4-6
 ---
 
 **Switches**: `-change`, `-new`, `-fix`
@@ -133,7 +133,7 @@ This command maintains two tracking files in `poc/`:
    - If this is a new area, plan to create a new CL entry
 
 3. **Determine scope based on mode:**
-   - **`-change` mode:** May be code only (visual/behavioral tweak) OR architecture + specs + code (if the modification affects structure)
+   - **`-change` mode:** May be code only (visual/behavioral tweak) OR architecture + specs + code (if the modification affects structure). If the change is structurally significant enough to warrant a new module, a new module spec may be created.
    - **`-new` mode:** Always requires architecture + module specs + code — new features MUST be reflected in POC architecture and at least one module spec before code is written
    - **`-fix` mode:** Code only — bug fixes do NOT update architecture or module specs (the specs describe intended behavior, which hasn't changed)
 
@@ -147,7 +147,7 @@ This command maintains two tracking files in `poc/`:
 
 2. **Update POC module specs** (REQUIRED for `-new`, if affected for `-change`, SKIP for `-fix`)
    - **`-new` mode:** MUST update or create module specs in `poc/architecture/modules/` — add new screens, acceptance criteria, and mock data requirements. If the feature fits an existing module, update that spec. If it requires a new module, create `poc/architecture/modules/module-{N}-{name}.md`
-   - **`-change` mode:** Update affected specs only if the change impacts screen descriptions, acceptance criteria, or mock data requirements
+   - **`-change` mode:** Update affected specs if the change impacts screen descriptions, acceptance criteria, or mock data requirements. If the modification is structurally significant enough to warrant a new module (e.g., splitting a screen into separate concerns), create `poc/architecture/modules/module-{N}-{name}.md`
    - **`-fix` mode:** SKIP — the specs already describe the correct behavior
 
 3. **Investigate and locate the issue** (`-fix` mode only)

@@ -15,11 +15,16 @@ Most AI-assisted development starts with code and hopes a coherent architecture 
 - **Rapid prototyping**: Generate a navigatable POC, validate with stakeholders, iterate with change tracking, and sync validated changes back to the PRD -- all before engineering begins
 
 ```
-Requirements  -->  PRD  -->  Architecture  -->  Module Specs  -->  Code  -->  Deployment
-                    ↑                                |
-                    |                                ↓
-                 Sync PRD  <--  Modify POC  <--  Generate POC
-                 (changelog)   (stakeholders)   (mock data)
+                                    Main Path
+Requirements ──→ PRD ──→ Architecture ──→ Module Specs ──→ Code ──→ Deployment
+                  ↑            ↑               ↑
+                  │            └─── Promote ────┘
+                  │             POC Design
+                  │           (merge + validate
+                  │            + promotion plan)
+                  │                 ↑
+               Sync PRD ←── Modify POC ←── Generate POC
+              (changelog)  (stakeholders)   (mock data)
 ```
 
 Every artifact is **derived** from the one above it. Modules are extracted from architecture, not invented. The Sum Test guarantees completeness:
@@ -47,6 +52,7 @@ The POC workflow lets product managers and non-technical stakeholders validate i
 | `/generate-poc` | Generates a navigatable proof-of-concept with mock data and mock integrations. Self-contained in `poc/` directory |
 | `/modify-poc` | Implements stakeholder-requested changes to the POC with full tracking |
 | `/sync-prd` | Merges validated POC changelog entries back into a new PRD document |
+| `/promote-poc-design` | Merges POC architecture into main architecture, validates coherence, and produces a code promotion plan. See [Design Promotion](#design-promotion--from-poc-to-production) |
 
 ### How change tracking works
 
@@ -83,6 +89,14 @@ Stakeholders       review POC demos, provide feedback -- never touch
 
 The engineering team is needed at two points: initially to define the tech stack, and later once the POC is validated and the PRD is updated. Everything in between is driven by the product manager.
 
+## Design Promotion -- From POC to Production
+
+After `/sync-prd` updates the PRD with validated POC changes, the main architecture and module specs are out of date. `/promote-poc-design` reconciles them: it merges the POC's architecture into the main architecture, runs multi-layered validation to ensure nothing is lost or inconsistent, and produces a code migration plan -- all before a single line of production code is written.
+
+The pipeline runs through 8 phases: prerequisites + sync guard + POC scope detection (frontend-only, backend-only, full-stack, or undetermined), backup, architecture & module merge via the `re-architect-agent`, POC incorporation check, structural validation (REQ-ID traceability, cycle detection, sum test), semantic validation via the `coherence-checker-agent`, code promotion plan via the `code-promotion-analyzer-agent`, and a summary report. Each validation layer catches a different class of error -- from silent feature drops to semantic inconsistencies -- providing defense-in-depth at design time rather than implementation time.
+
+> For the full phase-by-phase reference including sub-agent internals, see [`POC_PROMOTION_ALGORITHM.md`](POC_PROMOTION_ALGORITHM.md).
+
 ## Installation
 
 1. Copy the `.claude/` directory into the root of your project:
@@ -117,6 +131,9 @@ All commands are run as slash commands inside a Claude Code session.
 |------|---------|--------------|
 | 1 | `/generate-prd` | Transforms `OVERVIEW.md` into a structured `PRD.md` with hierarchical REQ-IDs for full traceability |
 | 2 | `/generate-architecture` | Generates `architecture/architecture.md` with high-level components, data flows, and user journeys. Each component maps back to REQ-IDs via `Implements:` tags |
+| 2a | `/generate-poc` | *(Optional)* Generates a navigatable POC with mock data for stakeholder validation |
+| 2b | `/sync-prd` | *(Optional)* Merges validated POC changes back into the PRD |
+| 2c | `/promote-poc-design` | *(Optional)* Merges POC architecture into main architecture, validates coherence, produces code promotion plan |
 | 3 | `/generate-modules` | Extracts module specs from architecture into `architecture/modules/`. Each module includes a Requirement Coverage table, user stories, acceptance criteria, and optional technical details (pseudo-code, schemas, API contracts) where they add clarity. Also generates the Module Registry and Integration Matrix in `architecture.md` |
 | 4 | `/generate-code` | Implements modules as production code with mandatory **L1 (unit, 60% coverage)** and **L2 (integration)** test gates. Fails the pipeline if gates are not met |
 | 5 | `/deploy-module` | Generates deployment configuration and deploys a module to cloud infrastructure |
@@ -196,6 +213,10 @@ Code generation will not proceed if these gates fail. L3 (E2E) tests are non-blo
 | `architecture/architecture.md` | High-level design with Integration Matrix (generated) |
 | `architecture/modules/*.md` | Module specs with pseudo-code and API contracts (generated) |
 | `tracking/module-tracking.md` | Module implementation status (auto-updated) |
+| `DESIGNGUIDE.md` | UI/UX and design constraints (you write this, optional) |
+| `POC_CODE_PROMOTE_PLAN.md` | Per-module REFACTOR/REWRITE/WRITE NEW migration plan (generated by `/promote-poc-design`) |
+| `DCF.md` | Technical reference -- command map, agent map, artifact map, authority chain, retrofit mode |
+| `POC_PROMOTION_ALGORITHM.md` | Phase-by-phase reference for the `/promote-poc-design` pipeline |
 
 ## Skills
 

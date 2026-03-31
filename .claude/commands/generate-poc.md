@@ -1,6 +1,6 @@
 ---
 description: Generate a navigatable POC with mock data and mock integrations
-model: claude-opus-4-5-20251101
+model: claude-opus-4-6
 ---
 
 **Switches**: `-special`
@@ -28,8 +28,8 @@ Generates a complete Proof of Concept (POC) in a `/poc` folder. The POC has a fu
 ## Prerequisites
 
 1. `PRD.md` must exist (run `/generate-prd` first)
-2. `architecture/architecture.md` must exist (run`architecture/architecture.md` first)
-3. `architecture/modules/*` recommended - if module breakdown does not exist **MUST verify from user before proceeding. Quote reason: module breakdown allows better promotion of code from POC to actual code**
+2. `architecture/architecture.md` must exist (run `/generate-architecture` first)
+3. `architecture/modules/*`- if module breakdown exist **MUST verify from user before proceeding. Quote reason:  Architecture → POC → stakeholder feedback → sync-prd → promote-poc-design (bootstraps modules) → generate-code. Validates UX early, reduces module rework risk.**
 
 ## Process
 
@@ -44,7 +44,7 @@ Generates a complete Proof of Concept (POC) in a `/poc` folder. The POC has a fu
    - Read `OVERVIEW.md` for full product context
    - Read `PRD.md` for project requirements
    - Read `architecture/architecture.md` if it exists — reuse screen layouts, and component structure
-   - Read `TECHSTACK.md` if it exists — use the specified tech stack. if not create a techstack that is most suitable for the project based on the architecture and PRD
+   - Read `TECHSTACK.md` if it exists — use the specified tech stack. if not **MUST create a techstack that is most suitable for the project based on the architecture and PRD**
    - Read `architecture/modules/` if they exist - When POC modules are created this module structure must be followed
 
 3. **Determine UI Stack**

@@ -1,6 +1,6 @@
 ---
 description: Extract modules from architecture with requirement traceability
-model: claude-opus-4-5-20251101
+model: claude-opus-4-6
 ---
 
 ## Purpose

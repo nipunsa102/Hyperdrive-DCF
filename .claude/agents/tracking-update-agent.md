@@ -74,7 +74,9 @@ Read and update `/tracking/module-tracking.md`:
 
 ## Summary
 - Total Modules: {count}
+- Deployed: {count}
 - Complete: {count}
+- L1 Pass: {count}
 - In Progress: {count}
 - Blocked: {count}
 - Not Started: {count}

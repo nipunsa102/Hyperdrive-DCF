@@ -179,6 +179,12 @@ Depending on which command invoked you:
 - Every REQ-ID must be in at least one module
 - Status: PASS only if complete end-to-end traceability
 
+### From /promote-poc-design
+- Full validation: PRD → architecture → modules (same scope as /generate-modules)
+- Architecture was recently merged from POC and main sources — expect newly added REQ-IDs from /sync-prd
+- This validation runs inside an iterative auto-fix loop (max 5 iterations) — actionable fix suggestions are critical
+- Status: PASS only if complete end-to-end traceability
+
 ## Error Conditions
 
 If required documents are missing:
@@ -194,28 +200,3 @@ Missing Required Documents:
 Cannot perform validation without required documents.
 ```
 
-## Example PASS Report
-
-```
-TRACEABILITY REPORT
-===================
-Status: PASS
-
----
-
-## PRD Coverage Summary
-Total REQ-IDs: 24
-Covered in Architecture: 24
-Covered in Modules: 24
-Orphan Requirements: 0
-
----
-
-## Validation Details
-- All 24 REQ-IDs from PRD.md are covered
-- All 12 modules have Requirement Coverage tables
-- All 8 architecture components have Implements: tags
-- No invalid REQ-ID references found
-
-Full traceability chain: PRD.md → architecture.md → modules ✓
-```

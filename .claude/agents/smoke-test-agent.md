@@ -57,7 +57,7 @@ curl -s http://localhost:{DEV_PORT} | grep -q "{expected_content}"
 FRONTEND_STATUS=$?
 ```
 
-### Step 3: Basic Verification
+### Step 3: Basic Verification (Structural)
 
 **Backend checks:**
 - Server process started without crash
@@ -68,6 +68,25 @@ FRONTEND_STATUS=$?
 - Dev server started without crash
 - HTML contains app mount point (e.g., `<div id="root">` for React, `<div id="app">` for Vue) or expected content
 - No build/bundle errors
+
+### Step 3b: Functional Verification
+
+**Skip this step when:** the module is foundational (no UI/API routes), or `-skip-smoke` flag is set.
+
+After confirming the app starts (Step 3), verify it serves meaningful content — not just an empty shell.
+
+**Frontend page checks** (for each page route in this module):
+- Response body length > 1KB (a real page with rendered components is larger than a bare HTML shell)
+- At least one visible text string from the module's expected UI (e.g., a heading, label, or placeholder text defined in the module spec)
+- No default error states visible in the response (scan for "Unable to load", "Error", "Something went wrong", "undefined", "null" rendered as text)
+
+**API endpoint checks** (for each API route in this module):
+- JSON response has a `data` field that is not `null` (for single-resource endpoints)
+- For list endpoints: response contains the expected envelope structure (`{ data: { items: [...] } }` or similar). If the database is empty (valid for first module), verify the envelope structure is correct even if `items` is an empty array
+- For stats/aggregate endpoints: `data` has the expected fields (not all `null` or `0`)
+- Response includes no 500 errors or stack traces
+
+**If functional verification fails:** Report the failure with specific details (which route, what was missing) but classify it as `FUNC_FAIL` (not a crash). The generate-code command will instruct the coding-agent to fix dev-mock data rather than marking the module BLOCKED.
 
 ### Step 4: Cleanup
 
@@ -81,13 +100,34 @@ kill $APP_PID 2>/dev/null
 
 ```json
 {
-  "status": "PASS|FAIL",
+  "status": "PASS|FAIL|FUNC_FAIL",
   "module": "M{N}",
   "checks": {
     "backend_starts": true|false|"skipped",
     "backend_responds": true|false|"skipped",
     "frontend_starts": true|false|"skipped",
     "frontend_renders": true|false|"skipped"
+  },
+  "functional_verification": {
+    "pages": [
+      {
+        "route": "/path",
+        "status": "PASS|FAIL|skipped",
+        "body_length": 1234,
+        "has_visible_content": true|false,
+        "has_error_states": true|false,
+        "details": "description of what was found or missing"
+      }
+    ],
+    "api_endpoints": [
+      {
+        "route": "/api/v1/resource",
+        "status": "PASS|FAIL|skipped",
+        "has_data": true|false,
+        "envelope_correct": true|false,
+        "details": "description of response structure"
+      }
+    ]
   },
   "errors": ["error message if any"],
   "recommendation": "what to fix if failed"
@@ -127,6 +167,8 @@ When smoke test fails, provide actionable diagnostics:
 3. **Dependency injection failures** - Services not wired correctly
 4. **Build failures** - Compilation errors, type errors, missing types
 5. **Runtime initialization errors** - Constructor failures
+6. **Empty page rendering** - Pages that compile but render empty/error states due to missing data or broken data fetching
+7. **Broken API responses** - Endpoints that return 200 but with null/empty/malformed data
 
 ## WHAT THIS TEST DOES NOT CATCH
 
@@ -134,6 +176,7 @@ When smoke test fails, provide actionable diagnostics:
 - Edge cases
 - Performance issues
 - Security vulnerabilities
+- Visual correctness (layout, styling, spacing)
 
 ## CORE REQUIREMENTS
 

@@ -1,6 +1,6 @@
 ---
 description: Generate architecture documentation following DCF methodology.
-model: claude-opus-4-5-20251101
+model: claude-opus-4-6
 ---
 
 switches: `-special`

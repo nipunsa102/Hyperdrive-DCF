@@ -21,11 +21,19 @@ pass the actual coverage target to agents. Agents use the value provided by the 
 
 ## Smoke Test Gate (BLOCKING)
 - Application must start without crashing
-- Basic functionality must respond
+- Basic functionality must respond with meaningful content:
+  - Pages return rendered HTML with visible UI content (not just the mount point)
+  - API endpoints return properly structured responses
+  - In dev mode, data-driven pages display sample data (not empty/error states)
+  - The smoke-test-agent performs both structural checks (build, routes) and functional checks (content, data)
 - BLOCKING - module cannot proceed if smoke fails
 - **Apply smoke test** to modules that produce runnable code (backend servers, frontend apps)
 - **Skip smoke test** for foundational modules (data models, utilities, shared libraries) with no runnable entry points
 - Determine classification by reading the module spec and checking for runnable endpoints or rendered UI
+
+> **Foundational modules** (data types, schemas, utilities with no UI/API routes) skip functional checks. Only structural checks (build, startup) apply.
+
+> **Functional check failures (`FUNC_FAIL`) are non-blocking:** If the app starts and routes respond (structural pass) but pages render empty or API data is missing (functional fail), the smoke-test-agent returns `FUNC_FAIL`. The generate-code command treats this as a data gap and invokes coding-agent to fix dev-mock data (max 2 attempts) before proceeding. Only structural failures (`FAIL` — app won't start, routes crash) are blocking.
 
 ## L2 Gate (Integration Tests)
 - Cross-module validation for critical flows

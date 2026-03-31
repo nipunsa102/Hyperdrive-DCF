@@ -69,6 +69,8 @@ Derive the 5 critical user flows dynamically from project documents — do NOT h
 - Internal module communication
 - Edge cases covered by unit tests
 
+> **Note:** The runtime API spot-check (Phase 2b) is a structural verification, not a functional test. It verifies that the API layer works end-to-end when the app is actually running, complementing the code-level integration tests.
+
 ---
 
 ## PHASE 1: TEST GENERATION
@@ -151,6 +153,18 @@ describe('L2 Integration Tests', () => {
    - Data flow validation tests
    - Error scenario tests
 3. Track which modules are covered by each test
+
+### 2b. Runtime API Spot-Check (after all tests pass)
+
+Start the application in dev mode and verify at least 3 API endpoints return properly structured, non-empty responses:
+
+1. **Pick 1 list endpoint** (e.g., `GET /api/v1/{resources}`) — verify `data.items` is an array (empty is OK if no seed data exists, but the envelope must be correct)
+2. **Pick 1 stats/aggregate endpoint** (e.g., `GET /api/v1/stats/{entity}`) — verify `data` has expected fields
+3. **Pick 1 auth-protected endpoint** — verify it returns 401 without auth header and 200 with dev-mode auth
+
+If any spot-check fails with a 500 error or malformed response, report it as a `RUNTIME_ISSUE` in the fix loop (Phase 3). This catches integration bugs that code-level mocks hide.
+
+After spot-checks complete, clean up the dev server process.
 
 ### Coverage Validation
 
