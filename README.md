@@ -133,8 +133,8 @@ All commands are run as slash commands inside a Claude Code session.
 | 2 | `/generate-architecture` | Generates `architecture/architecture.md` with high-level components, data flows, and user journeys. Each component maps back to REQ-IDs via `Implements:` tags |
 | 2a | `/generate-poc` | *(Optional)* Generates a navigatable POC with mock data for stakeholder validation |
 | 2b | `/sync-prd` | *(Optional)* Merges validated POC changes back into the PRD |
-| 2c | `/promote-poc-design` | *(Optional)* Merges POC architecture into main architecture, validates coherence, produces code promotion plan |
-| 3 | `/generate-modules` | Extracts module specs from architecture into `architecture/modules/`. Each module includes a Requirement Coverage table, user stories, acceptance criteria, and optional technical details (pseudo-code, schemas, API contracts) where they add clarity. Also generates the Module Registry and Integration Matrix in `architecture.md` |
+| 2c | `/promote-poc-design` | *(Optional)* Merges POC architecture into main architecture, validates coherence, produces code promotion plan. **If you use the POC path (2a-2c), skip Step 3** -- `/promote-poc-design` creates the module specs via merge, and running `/generate-modules` afterward would overwrite them |
+| 3 | `/generate-modules` | Extracts module specs from architecture into `architecture/modules/`. Skipped if you used the POC path (Steps 2a-2c). Each module includes a Requirement Coverage table, user stories, acceptance criteria, and optional technical details (pseudo-code, schemas, API contracts) where they add clarity. Also generates the Module Registry and Integration Matrix in `architecture.md` |
 | 4 | `/generate-code` | Implements modules as production code with mandatory **L1 (unit, 60% coverage)** and **L2 (integration)** test gates. Fails the pipeline if gates are not met |
 | 5 | `/deploy-module` | Generates deployment configuration and deploys a module to cloud infrastructure |
 
@@ -147,6 +147,7 @@ All commands are run as slash commands inside a Claude Code session.
 | `-max-attempts N` | Max test-fix cycles before giving up (default: 5) |
 | `-review` | Enable optional code review after all modules pass L1 + smoke |
 | `-skip-smoke` | Skip smoke tests (not recommended, use only for foundational modules) |
+| `-retrofit` | Enable retrofit mode using `POC_CODE_PROMOTE_PLAN.md` from `/promote-poc-design`. Passes per-module POC context (REFACTOR/REWRITE/WRITE NEW decision, files, gaps, migration steps) to the coding agent. Falls back to normal mode if the plan file is missing |
 
 #### `/deploy-module` options *(coming soon)*
 
@@ -163,7 +164,7 @@ All commands are run as slash commands inside a Claude Code session.
 |---------|--------------|
 | `/update-tracking` | Update module status in `tracking/module-tracking.md` |
 
-Options: `-module M1` (specific module), `-status <status>` (one of `not_started`, `in_progress`, `l1_pass`, `blocked`, `complete`)
+Options: `-module M1` (specific module), `-status <status>` (one of `not_started`, `in_progress`, `l1_pass`, `blocked`, `complete`, `deployed`)
 
 ## Project Structure
 
@@ -196,9 +197,10 @@ project-root/
 
 ## Test Gates
 
-DCF enforces two blocking test gates during code generation:
+DCF enforces three blocking test gates during code generation:
 
 - **L1 (Unit)** -- 60% code coverage minimum per module
+- **Smoke Test** -- Application starts and basic functionality responds (applies to runnable modules; skipped for foundational modules like data models or utilities)
 - **L2 (Integration)** -- Cross-module validation per the Integration Matrix
 
 Code generation will not proceed if these gates fail. L3 (E2E) tests are non-blocking.
