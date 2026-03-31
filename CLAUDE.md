@@ -3,7 +3,7 @@
 ```
 /generate-prd → /generate-architecture → /generate-modules → /generate-code → /deploy-module
 ```
-POC loop (optional, before /generate-code):
+POC loop (optional, after /generate-architecture — replaces /generate-modules):
 ```
 /generate-poc → /modify-poc (repeat) → /sync-prd → /promote-poc-design → /generate-code -retrofit
 ```
