@@ -152,9 +152,9 @@ Add timestamped entry to History section:
 ## Data Flow
 
 ```
-Event Context (from invoking agent)
+Event Context (from invoking context)
     ↓
-tracking-update-agent analyzes event
+This agent analyzes the event
     ↓
 Updates /tracking/module-tracking.md
     ↓

@@ -3,12 +3,18 @@ description: Generate architecture documentation following DCF methodology.
 model: claude-opus-4-6
 ---
 
-switches: `-special`
+**Switches**: `-special`
 
-Switch Definitions:
-- `-special` -> Special requirements for planning
+**Switch Definitions**:
+- `-special` — Special requirements for planning
 
+## Purpose
 
+Generates the main architecture documentation for the project: `architecture/architecture.md` (system-level design, components, screens, integration matrix, requirement coverage) and `architecture/data-model.md` (logical data model — entities, relationships, constraints). Derives everything from `PRD.md` so that every REQ-ID has architectural coverage.
+
+## Prerequisites
+
+1. `PRD.md` must exist at project root. If missing, ERROR: `"PRD.md not found. Run /generate-prd first."`
 
 ## Process
 
@@ -55,7 +61,6 @@ Generate the main architecture file as a **conceptual overview** that anyone can
 - Integration Matrix (created by /generate-modules)
 - Individual module specifications
 - API endpoint specifications
-- Database schemas or SQL
 - File format specifications
 - Technical protocols (REST, JSON, HTTP)
 - Pseudo-code or function signatures
@@ -120,7 +125,23 @@ After generating all component sections, include a coverage summary matrix:
 - Empty "Component(s)" column = ORPHAN requirement (must fix)
 - This matrix enables quick validation that no requirement is missed
 
-**Example of correct abstraction:**
+**Data Model:**
+
+The architecture MUST include a **"Data Model"** section in `architecture/architecture.md` that gives a one-paragraph conceptual summary of the system's data and links to `architecture/data-model.md`.
+
+Additionally, produce `architecture/data-model.md` alongside `architecture/architecture.md`. This file contains the **logical data model** at architecture depth:
+
+- Logical entities with fields, types, nullability, enums
+- Relationships (1:1, 1:N, N:M) with cardinality and FK direction
+- Indexes and uniqueness constraints
+- Derived/computed fields and their source rule
+- Seed / reference data
+- REQ-ID back-references on every entity (traceability)
+- Notes on storage technology **intent** (e.g., "relational, transactional") but NOT specific vendor choice — vendor is decided later (e.g., during `/prepare-poc-promo` or by TECHSTACK.md)
+
+Use logical-model depth (types, relationships, constraints, enums) but defer vendor-specific choices (no SQL, no Prisma schema, no migration files).
+
+**Example of correct abstraction (in architecture.md Data Concepts section):**
 ```
 ## Data Concepts
 
@@ -130,6 +151,8 @@ The system manages:
 - Ideas: Visual brainstorming boards (drawings and diagrams)
 - Notes: Rich text documentation
 - Artifacts: External files (PDFs, documents, images)
+
+See [Data Model](data-model.md) for the full logical schema.
 ```
 
 NOT:
@@ -203,7 +226,7 @@ User Action → System Response → Next State
 
 **DO NOT include in architecture.md:**
 - Sequence diagrams (too detailed - belongs in modules)
-- Database schemas (belongs in modules)
+- Vendor-specific database schemas or SQL (belongs in modules; logical data model goes in `architecture/data-model.md`)
 - API specifications (belongs in modules)
 - Pseudo-code (belongs in modules)
 
@@ -222,7 +245,8 @@ User Action → System Response → Next State
 ## Output Structure
 ```
 architecture/
-└── architecture.md          # High-level conceptual overview with Implements: tags
+├── architecture.md          # High-level conceptual overview with Implements: tags
+└── data-model.md            # Logical data model (entities, relationships, constraints)
 ```
 
 **Note:** Module specifications are created separately by `/generate-modules` command.
@@ -263,6 +287,8 @@ Before completion:
 7. For UI-heavy applications: Are screen layout diagrams included?
 8. For process-heavy applications: Are high-level flow diagrams included?
 9. Do all diagrams have "Implements:" tags linking to requirements?
+10. Does `architecture/data-model.md` exist with logical entities, relationships, and REQ-ID traceability?
+11. Does `architecture/architecture.md` contain a "Data Model" section linking to `data-model.md`?
 
 ## Next Step
 

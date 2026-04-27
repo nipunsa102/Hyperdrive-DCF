@@ -68,7 +68,8 @@ Description of UI elements and interactions...
 - Concept 2: explanation
 
 ## Data Needs
-What information this module stores/displays (conceptual)
+What information this module stores/displays (conceptual).
+If `architecture/data-model.md` exists, reference the specific entities this module reads/writes (e.g., "Uses: Flick, Lesson, VocabularyItem from data-model.md"). Modules never re-define entities — the data model is the single source of truth.
 
 ## Interactions
 - Depends on: Module X, Module Y
@@ -132,7 +133,7 @@ The main workspace showing project tiles...
 | Detail Type | Include When | Skip When | Example |
 |-------------|--------------|-----------|---------|
 | **Sequence Diagram** | Multi-step async flows, complex interactions between components | Simple request-response, CRUD operations | User login with OAuth, file upload with processing |
-| **ER Diagram** | Module owns data with 2+ related entities | Single entity, no relationships | Customer-Order-LineItem relationships |
+| **ER Diagram** | Module owns data with 2+ related entities AND no `architecture/data-model.md` exists | Single entity, no relationships, or `data-model.md` covers this module's entities | Customer-Order-LineItem relationships |
 | **Pseudo-code** | Complex algorithms, state machines, tricky business logic | Simple CRUD, straightforward UI rendering | Search ranking algorithm, retry logic with backoff |
 | **State Diagram** | Components with multiple states and transitions | Stateless operations | Order workflow (pending→processing→shipped→delivered) |
 | **API Contract** | Module exposes external interface | Internal-only module | REST endpoints consumed by frontend |

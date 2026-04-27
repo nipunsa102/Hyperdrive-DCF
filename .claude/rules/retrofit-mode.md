@@ -1,19 +1,44 @@
+---
+paths:
+  - "src/**/*"
+  - "tests/**/*"
+---
+
 # Retrofit Mode Rules
 
 ## Detection
-Retrofit mode is active when the invoking command passes:
-- `Retrofit: REFACTOR` — POC code is the starting point, adapted for production
-- `Retrofit: REWRITE` — POC code is a reference only, fresh production code written
-- `Retrofit: WRITE NEW` — No POC code relevant, identical to Normal mode
+Retrofit mode is active when the invoking context passes one of:
+- `Retrofit: AS_IS` — POC file is production-quality; copy verbatim and apply a short list of surgical edits. No code regeneration is required in this mode.
+- `Retrofit: ADAPT` — POC structure is sound; preserve POC code as a starting point, replace the mock/fake layer with real implementations, and fill any production gaps from the module spec.
+- `Retrofit: REWRITE` — POC code is reference only. Write fresh production code from the module spec, preserving visual/behavioral patterns observed in POC where they align.
 
 ## Source of Truth
 The module spec (`architecture/modules/module-{N}-{name}.md`) defines WHAT to build.
-The retrofit context (from `POC_CODE_PROMOTE_PLAN.md`) defines HOW to start.
+The retrofit context (passed by the invoking context, derived from an upstream code promotion analysis) defines HOW to start.
 **The module spec always wins** if it conflicts with POC code.
 
-## Retrofit: REFACTOR
+## Retrofit: AS_IS
 
-The invoking command provides: POC file list with actions, gaps list, and migration steps.
+The POC code satisfies the module spec as-is (upstream analysis reported `poc_coverage ≥ 0.80`, framework identical to production, clean or no mocks). In this mode, no code generation is performed — the invoking context handles promotion directly:
+
+**What the invoking context does:**
+- Copies each POC file listed in the retrofit context to its target production path
+- Applies the short list of surgical edits named in the retrofit context (typical edit types: swap a hardcoded value for an env-var read, replace POC-specific file-path references in error messages, rename a domain term that changed during POC → PRD sync, update an import path for the production directory layout)
+- Does NOT reformat, restructure, or regenerate the file
+
+**What still runs (unchanged from other modes, but orchestrated by the invoking context — not referenced here):**
+- L1 test generation
+- L1 unit test gate (coverage target)
+- Smoke test
+- Module tracking update
+
+**Defense-in-depth:** If this rule is consulted by a code-generation consumer in AS_IS mode (orchestration bug), the consumer MUST return immediately with status `"AS_IS — no implementation required; files are handled by the invoking context"` and touch **no files**.
+
+**Key rule:** AS_IS is the fast path for production-quality POCs. If the upstream analysis misclassified and a fresh test failure reveals the POC code does not actually satisfy the spec, the module is marked `Blocked` — do not silently upgrade to ADAPT. Escalate so the upstream analysis can re-run or the code can be fixed manually.
+
+## Retrofit: ADAPT
+
+The retrofit context provides: POC file list with actions, gaps list, and migration steps.
 
 1. **Read the POC files** listed in the retrofit context
 2. **Copy POC code** as the starting point for each production file
@@ -27,7 +52,7 @@ The invoking command provides: POC file list with actions, gaps list, and migrat
 
 ## Retrofit: REWRITE
 
-The invoking command provides: POC file list (reference only), behavioral patterns to preserve, and gaps list.
+The retrofit context provides: POC file list (reference only), behavioral patterns to preserve, and gaps list.
 
 1. **Read the POC files** listed in the retrofit context for behavioral/visual reference
 2. **Do NOT copy POC code** — write fresh production code from the module spec
@@ -37,10 +62,6 @@ The invoking command provides: POC file list (reference only), behavioral patter
 
 **Key rule:** The POC is a reference, not a template. The implementation is driven entirely by the module spec.
 
-## Retrofit: WRITE NEW
-
-No retrofit-specific context is provided beyond the mode indicator. This is identical to Normal mode — implement from the module spec with no POC reference.
-
 ## Workflow Overrides
 In Retrofit mode, the standard implementation workflow is NOT modified:
 
@@ -48,7 +69,7 @@ In Retrofit mode, the standard implementation workflow is NOT modified:
 - **All fix loops apply:** Same max attempts, same agent invocations
 - **Dependency ordering:** Same as Normal mode (from Integration Matrix)
 - **Output location:** All code goes to `src/` (NOT `poc/src/`)
-- **Coverage target:** As specified by invoking command (default 60%)
+- **Coverage target:** As specified by the invoking context (default 60%)
 
 For test gate details, see `test-gates.md`.
 For test limit details, see `test-limits.md`.

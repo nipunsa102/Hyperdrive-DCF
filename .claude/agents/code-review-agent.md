@@ -69,6 +69,69 @@ Perform a systematic review of all code generated for the specified modules:
   - Memory leaks or excessive resource consumption
   - Missing caching opportunities
 
-## Step 3: Reporting
+## Step 3: Classify Findings
 
-Report any Major issues - Identify the offending modules (e.g. M1 - issue xxx, M6 - issue yyy)
+Every issue you surface must be classified by severity so the invoking context can decide whether to block the review or accept with warnings.
+
+### Severity Categories
+
+- **`CRITICAL`** — the code is incorrect or insecure and must not ship: logic errors producing wrong results, security vulnerabilities (injection, auth bypass, sensitive-data exposure), resource leaks, race conditions in shared state, missing required error handling that crashes the app.
+- **`MAJOR`** — the code works but violates quality or maintainability standards meaningfully: significant code duplication, violated module boundaries, broken interface contracts, missing input validation at trust boundaries, performance anti-patterns likely to matter at expected load, missing integration points declared in the spec.
+- **`MINOR`** — the code works and is maintainable but could be improved: naming drift from project conventions, inconsistent formatting (if the project has a standard), stylistic inconsistencies, missing docstrings/comments on non-obvious logic, unused imports or variables.
+
+Findings that are subjective preferences (e.g., "I prefer a different pattern here") should NOT be reported — only issues tied to a concrete standard, spec requirement, or demonstrable risk.
+
+## Step 4: Produce the Review Report
+
+Return the review as a structured markdown report in the following format. The invoking context parses this to decide next actions.
+
+```markdown
+# Code Review Report
+
+## Status: [PASS | PASS_WITH_WARNINGS | FAIL]
+
+- **PASS** — no CRITICAL or MAJOR issues; at most MINOR.
+- **PASS_WITH_WARNINGS** — one or more MAJOR issues, no CRITICAL.
+- **FAIL** — one or more CRITICAL issues present. The invoking context MUST block progression on FAIL.
+
+## Summary
+
+- Modules reviewed: [list module IDs]
+- Findings: [N] CRITICAL, [N] MAJOR, [N] MINOR
+
+## Findings
+
+| # | Severity | Module | File:Line | Category | Description | Suggested Fix |
+|---|----------|--------|-----------|----------|-------------|---------------|
+| 1 | CRITICAL | M3 | src/.../handler.ts:42 | Security | [specific description] | [concrete remediation] |
+| 2 | MAJOR | M5 | src/.../service.ts:88 | Correctness | [specific description] | [concrete remediation] |
+| 3 | MINOR | M2 | src/.../util.ts:15 | Style | [specific description] | [concrete remediation] |
+
+(Omit table header row if no findings; include a single line "No findings — all modules reviewed clean.")
+
+## Per-Module Coverage Summary
+
+| Module | Files Reviewed | CRITICAL | MAJOR | MINOR | Status |
+|--------|----------------|----------|-------|-------|--------|
+| M1 | N | 0 | 0 | 1 | PASS |
+| M2 | N | 0 | 1 | 2 | PASS_WITH_WARNINGS |
+| ... | ... | ... | ... | ... | ... |
+```
+
+**Category values** (use exactly one per finding for consistent parsing):
+- `Cohesion` — module boundary or integration issue
+- `Completeness` — spec item not implemented or acceptance criterion not met
+- `Correctness` — logic error, race condition, incorrect business logic
+- `Quality` — duplication, complexity, readability, naming
+- `Security` — injection, auth, secrets, data exposure
+- `Performance` — inefficient queries, N+1, excessive allocation, missing caching
+- `Style` — convention drift (for MINOR only)
+
+## What Happens After Your Report
+
+- The invoking context reads the `Status:` line and the findings table
+- On **FAIL**, the invoking context blocks progression and typically re-invokes code generation to address CRITICAL findings, then re-invokes this review
+- On **PASS_WITH_WARNINGS**, the invoking context decides whether to proceed with warnings logged or address MAJOR findings first
+- On **PASS**, the invoking context proceeds to the next gate or completion
+
+Do NOT wait for, confirm, or orchestrate the fix cycle yourself — return the report and exit. The invoking context handles the loop.

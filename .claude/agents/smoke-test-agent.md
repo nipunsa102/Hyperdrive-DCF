@@ -86,7 +86,7 @@ After confirming the app starts (Step 3), verify it serves meaningful content �
 - For stats/aggregate endpoints: `data` has the expected fields (not all `null` or `0`)
 - Response includes no 500 errors or stack traces
 
-**If functional verification fails:** Report the failure with specific details (which route, what was missing) but classify it as `FUNC_FAIL` (not a crash). The generate-code command will instruct the coding-agent to fix dev-mock data rather than marking the module BLOCKED.
+**If functional verification fails:** Report the failure with specific details (which route, what was missing) but classify it as `FUNC_FAIL` (not a crash). The invoking context is expected to trigger a targeted fix of dev-mock data rather than marking the module BLOCKED.
 
 ### Step 4: Cleanup
 
@@ -193,13 +193,13 @@ When smoke test fails, provide actionable diagnostics:
 ```
 Module Implementation Complete
            ↓
-L1 Unit Tests Pass (60% coverage)
+L1 Unit Tests Pass (coverage target met)
            ↓
-smoke-test-agent ← YOU ARE HERE
+[YOU ARE HERE — the smoke test gate]
     │
-    ├── PASS → Continue to next module
+    ├── PASS → Invoking context continues to next module
     │
-    └── FAIL → BLOCKED
+    └── FAIL → Return BLOCKED status to invoking context
            │
            └── Fix must be applied before proceeding
 ```

@@ -1,6 +1,6 @@
 ---
 name: traceability-validator-agent
-description: Validates requirement traceability across DCF documents. Invoked by /generate-prd, /generate-architecture, and /generate-modules commands to check REQ-ID coverage and return actionable feedback for auto-fixing gaps.
+description: Validates requirement traceability across DCF documents. Checks REQ-ID coverage and returns actionable feedback for auto-fixing gaps.
 model: opus
 color: blue
 ---
@@ -159,30 +159,30 @@ Orphan Requirements: [N]
 
 ## Context-Aware Validation
 
-Depending on which command invoked you:
+Depending on the validation scope provided:
 
-### From /generate-prd
+### PRD-only validation scope
 - Only validate PRD.md internal consistency
 - Check REQ-ID numbering follows convention
 - Verify all OVERVIEW.md sections have corresponding REQ-IDs
 - Status: PASS if PRD is complete and well-formed
 
-### From /generate-architecture
+### Architecture validation scope
 - Validate PRD.md → architecture.md coverage
 - Every component needs "Implements:" tag
 - Every REQ-ID should be in at least one component
 - Status: PASS if all REQ-IDs covered by components
 
-### From /generate-modules
+### Full validation scope (architecture + modules)
 - Full validation: PRD → architecture → modules
 - Every module needs Requirement Coverage table
 - Every REQ-ID must be in at least one module
 - Status: PASS only if complete end-to-end traceability
 
-### From /promote-poc-design
-- Full validation: PRD → architecture → modules (same scope as /generate-modules)
-- Architecture was recently merged from POC and main sources — expect newly added REQ-IDs from /sync-prd
-- This validation runs inside an iterative auto-fix loop (max 5 iterations) — actionable fix suggestions are critical
+### Post-merge validation scope
+- Same as full validation scope
+- Architecture was recently merged from POC and main sources — expect newly added REQ-IDs
+- This validation may run inside an iterative auto-fix loop — actionable fix suggestions are critical
 - Status: PASS only if complete end-to-end traceability
 
 ## Error Conditions
@@ -195,7 +195,7 @@ TRACEABILITY REPORT
 Status: ERROR
 
 Missing Required Documents:
-- PRD.md not found (run /generate-prd first)
+- PRD.md not found
 
 Cannot perform validation without required documents.
 ```

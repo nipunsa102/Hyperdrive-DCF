@@ -23,8 +23,8 @@ Implements stakeholder-requested changes to the POC and tracks all modifications
 
 **What this command does:**
 - Implements the requested change, new feature, or bug fix across POC code, architecture, and module specs as needed
-- Appends a raw log entry to `poc/change-tracking.md` (product manager reference)
-- Creates or updates a detailed technical entry in `poc/changelog.md` (future `/sync-prd` consumption)
+- Appends a raw log entry to `poc/poc-tracking/change-tracking.md` (product manager reference)
+- Creates or updates a detailed technical entry in `poc/poc-tracking/CHANGELOG.md` (future `/sync-prd` consumption)
 - Verifies the POC still works after changes
 
 **What this command does NOT do:**
@@ -39,9 +39,9 @@ Implements stakeholder-requested changes to the POC and tracks all modifications
 
 ## Tracking Files
 
-This command maintains two tracking files in `poc/`:
+This command maintains two tracking files in `poc/poc-tracking/`:
 
-### `poc/change-tracking.md` — Product Manager Log
+### `poc/poc-tracking/change-tracking.md` — Product Manager Log
 
 **Audience:** Product manager (non-technical)
 **Purpose:** Simple append-only log of what was requested, in the PM's own words
@@ -68,7 +68,7 @@ This command maintains two tracking files in `poc/`:
 - Tag is `[CHANGE]`, `[NEW]`, or `[FIX]` matching the switch used
 - Content is the raw switch text, unmodified
 
-### `poc/changelog.md` — Technical Living Document
+### `poc/poc-tracking/CHANGELOG.md` — Technical Living Document
 
 **Audience:** Technical team / future commands (especially `/sync-prd`)
 **Purpose:** Detailed breakdown of what changed across code, POC architecture, and POC module specs
@@ -88,7 +88,8 @@ This command maintains two tracking files in `poc/`:
 **Module Spec Changes:**
 - `poc/architecture/modules/module-{N}-{name}.md` — {What was updated} (or "None")
 **Code Changes:**
-- `poc/src/path/to/file.tsx` — {What was added/modified}
+- `poc/src/path/to/file.{ext}` — {What was added/modified}  <!-- e.g., .tsx, .py, .go — match the project's file extension -->
+
 ```
 
 **Rules:**
@@ -110,8 +111,8 @@ This command maintains two tracking files in `poc/`:
    - Record the **mode** for use in later phases: `CHANGE`, `NEW`, or `FIX`
 
 2. **Read existing tracking files** (if they exist)
-   - Read `poc/changelog.md` to understand prior changes and current state
-   - Read `poc/change-tracking.md` to see request history and determine next CT number
+   - Read `poc/poc-tracking/CHANGELOG.md` to understand prior changes and current state
+   - Read `poc/poc-tracking/change-tracking.md` to see request history and determine next CT number
 
 3. **Read POC architecture and module specs**
    - Read `poc/architecture/architecture.md` for current POC structure
@@ -190,7 +191,7 @@ This command maintains two tracking files in `poc/`:
 
 After successful implementation and smoke test:
 
-**A) Update `poc/change-tracking.md`** (append-only)
+**A) Update `poc/poc-tracking/change-tracking.md`** (append-only)
 
 1. Determine the next CT number:
    - If file doesn't exist, start with CT-001
@@ -198,7 +199,7 @@ After successful implementation and smoke test:
 2. Append a new entry with today's date, the mode tag (`[CHANGE]` or `[NEW]`), and the raw switch text
 3. If the file doesn't exist, create it with the header `# POC Change Tracking` followed by the first entry
 
-**B) Update `poc/changelog.md`** (living document — for `-change` and `-new` modes only)
+**B) Update `poc/poc-tracking/CHANGELOG.md`** (living document — for `-change` and `-new` modes only)
 
 1. **`-fix` mode:** Create a lightweight `[FIX]` entry — code changes only, no architecture or module spec changes. Description should note what was broken and what was fixed.
 2. **`-change` / `-new` mode:** Determine if this change should UPDATE an existing CL entry or CREATE a new one:
@@ -219,8 +220,8 @@ START → Read switch (exactly one of -change, -new, -fix REQUIRED)
           ↓
    Phase 1: Understanding
    ┌──────────────────────────────────────────────┐
-   │  1. Read poc/changelog.md (prior changes)    │
-   │  2. Read poc/change-tracking.md (CT numbers) │
+   │  1. Read poc/poc-tracking/CHANGELOG.md       │
+   │  2. Read poc/poc-tracking/change-tracking.md │
    │  3. Read poc/architecture/architecture.md    │
    │  4. Read poc/architecture/modules/*          │
    │  5. Read PRD.md (context only, NOT modified) │
@@ -259,23 +260,34 @@ START → Read switch (exactly one of -change, -new, -fix REQUIRED)
        DONE — Report changes to user
 ```
 
+## Outputs
+
+Files created or modified (all within `poc/`):
+- `poc/src/**` — POC code changes for the requested `-change`, `-new`, or `-fix`; POC mode rules apply (mock data, no real backends)
+- `poc/architecture/architecture.md` — updated when the change affects POC screens, navigation, or component boundaries
+- `poc/architecture/modules/module-{N}-{name}.md` — updated when the change affects module-level spec
+
+Tracking files updated (all within `poc/poc-tracking/`):
+- `poc/poc-tracking/change-tracking.md` — new append-only PM entry with the raw switch text
+- `poc/poc-tracking/CHANGELOG.md` — detailed technical entry (living document — merged with prior entries for the same area when relevant)
+
+Side effects:
+- None on external services. `/modify-poc` does not call real APIs, modify databases, deploy, or mutate any infrastructure.
+
+Files NEVER touched:
+- Main `PRD.md` (read-only; `/sync-prd` handles propagation later)
+- Main `architecture/` (read-only)
+- Main `src/` (read-only — POC is self-contained)
+- Main `tracking/` (not used by POC path)
+
 ## CRITICAL CONSTRAINTS
 
 - **ALL changes stay within `poc/` folder** — never touch main `src/`, `architecture/`, or `tracking/`
 - **Follows POC mode rules** — mock data, no real backends, frontend only
 - **Reads but does NOT modify** `PRD.md` or main `architecture/architecture.md`
-- **`poc/change-tracking.md` is append-only** — never edit previous entries
-- **`poc/changelog.md` is a living document** — merge/update entries for the same area
+- **`poc/poc-tracking/change-tracking.md` is append-only** — never edit previous entries
+- **`poc/poc-tracking/CHANGELOG.md` is a living document** — merge/update entries for the same area
 - **The command does NOT propagate changes to PRD** — that is a separate future command
-
-## Success Criteria
-
-- [ ] Requested change is implemented in POC code
-- [ ] POC architecture and module specs updated (if the change warrants it)
-- [ ] POC still starts and runs (e.g., `cd poc && npm install && npm run dev`)
-- [ ] Smoke test passes
-- [ ] `poc/change-tracking.md` has new log entry with PM's raw request
-- [ ] `poc/changelog.md` has detailed technical entry (new or merged with existing)
 
 ## Agents Used
 
@@ -297,10 +309,19 @@ START → Read switch (exactly one of -change, -new, -fix REQUIRED)
 
 - **MUST** read POC architecture and changelog before making changes
 - **MUST** read PRD.md for requirement context (but never modify it)
-- **MUST** invoke `coding-agent` for code changes with POC mode context
-- **MUST** invoke `smoke-test-agent` after all code changes
+- **MUST** INVOKE `coding-agent` for code changes with POC mode context
+- **MUST** INVOKE `smoke-test-agent` after all code changes
 - **MUST** update both tracking files after successful implementation
 - **MUST** keep all changes within `poc/` folder
 - **MUST** have exactly one switch (`-change`, `-new`, or `-fix`) — error if none or multiple provided
 - **MUST** update POC architecture and module specs when `-new` is used (new features always need documentation)
 - **MUST** investigate and locate bugs from natural language descriptions when `-fix` is used — no PRD IDs, module numbers, or file paths required from the user
+
+## Success Criteria
+
+- [ ] Requested change is implemented in POC code
+- [ ] POC architecture and module specs updated (if the change warrants it)
+- [ ] POC still starts and runs (using the project's dev command)
+- [ ] Smoke test passes
+- [ ] `poc/poc-tracking/change-tracking.md` has new log entry with PM's raw request
+- [ ] `poc/poc-tracking/CHANGELOG.md` has detailed technical entry (new or merged with existing)

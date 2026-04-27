@@ -3,159 +3,97 @@ description: Update Tracking
 model: claude-opus-4-6
 ---
 
-switches: `-module`, `-status`
+**Switches**: `-module`, `-status`
 
-Switch Definitions:
-- `-module` -> Specific module to update (e.g., M1, M2, M3)
-- `-status` -> New status (not_started, in_progress, l1_pass, blocked, complete, deployed)
+**Switch Definitions**:
+- `-module` — Specific module to update (e.g., `M1`, `M2`, `M3`)
+- `-status` — New status. One of: `Not Started`, `In Progress`, `L1 Pass`, `Blocked`, `Complete`, `Deployed`
 
 ## Purpose
-Updates module status in the tracking document. This command ensures that module status and progress remain accurate and up-to-date.
+
+Updates module status in the tracking document at `tracking/module-tracking.md`. Ensures the status table and summary counts stay accurate. Typically invoked programmatically from other workflow commands (via the tracking-update agent), but can also be run manually with switches to correct a specific module's status.
 
 ## Prerequisites
-- Tracking document must exist: `/tracking/module-tracking.md`
-- Architecture must exist: `/architecture/architecture.md`
 
-## Process Flow
+1. `tracking/module-tracking.md` must exist. If missing, ERROR: `"tracking/module-tracking.md not found. Run /promote-poc or /generate-code first to initialize tracking."`
+2. `architecture/architecture.md` must exist (the module registry is the source of truth for what modules exist). If missing, ERROR: `"architecture/architecture.md not found. Run /generate-architecture first."`
 
-### Phase 1: Status Collection
+If any prerequisite fails, ERROR with a clear message and stop.
 
-```python
-def collect_current_status():
-    """Gather current status from module-tracking.md."""
+## Process
 
-    status_data = {
-        'modules': {}
-    }
+### Phase 1: Read current state
 
-    # Read module-tracking.md
-    tracking = read_file("/tracking/module-tracking.md")
+1. **Read `tracking/module-tracking.md`** and parse:
+   - The Summary block (total, counts per status)
+   - The Module Status table (per-module rows: ID, Name, Status, L1 Coverage, L2 Status, Dependencies, Notes)
+   - The Blockers section (if present)
+   - The History section (append-only log)
 
-    # Parse module statuses from table
-    for module in parse_module_table(tracking):
-        status_data['modules'][module['id']] = {
-            'name': module['name'],
-            'status': module['status'],
-            'l1_coverage': module['l1_coverage'],
-            'l2_status': module['l2_status'],
-            'dependencies': module['dependencies']
-        }
+2. **Read `architecture/architecture.md` Module Registry** to confirm the set of modules that should appear in the tracking table. If a module in the registry is missing from the tracking table, note it as a recovery action in Phase 2.
 
-    return status_data
-```
+### Phase 2: Apply update
 
-### Phase 2: Status Update
+Two modes of operation:
 
-```python
-def update_tracking_status(module=None, new_status=None):
-    """Update status in module-tracking.md."""
+- **Targeted update (both `-module` and `-status` provided):** update just the named module's Status column. If `-status` is `L1 Pass` or `Complete`, the invoking context is expected to also pass `L1 Coverage` and, where relevant, `L2 Status` as part of the invocation payload — write those if provided.
+- **Sync mode (no switches):** do not change any module's status; only recalculate Summary counts from the current Module Status table. This is the default automatic-invocation behavior when another workflow step wants to refresh counts after a batch of changes.
 
-    if module and new_status:
-        # Update specific module
-        updates = {module: new_status}
-    else:
-        # Sync all modules (recalculate based on current state)
-        updates = reconcile_statuses()
+Validation rules:
+- Reject an unknown `-status` value with a clear error (list allowed values).
+- Reject `-module` values not present in the Module Registry with a clear error.
+- If targeting a module that is currently `Blocked`, require the new status to be explicit — do not silently clear a blocker.
 
-    # Update module-tracking.md
-    update_module_tracking(updates)
+### Phase 3: Recalculate summary and write back
 
-    # Recalculate summary counts
-    update_summary_counts()
-```
+1. **Recompute Summary counts** from the (possibly updated) Module Status table:
+   - Total Modules = row count
+   - Complete = rows with Status `Complete`
+   - L1 Pass = rows with Status `L1 Pass`
+   - In Progress = rows with Status `In Progress`
+   - Blocked = rows with Status `Blocked`
+   - Not Started = rows with Status `Not Started`
+   - Deployed = rows with Status `Deployed`
 
-### Phase 3: Progress Calculation
+2. **Append a History entry** for any status transition made this run (timestamp + `M{N}: {old} -> {new}`).
 
-```python
-def update_summary_counts():
-    """Calculate and update summary section."""
+3. **Rewrite `tracking/module-tracking.md`** with updated Summary block, updated Module Status table, updated Blockers section (if a module transitioned to/from Blocked), and the appended History entry. Preserve everything else verbatim.
 
-    # Read current module statuses
-    statuses = get_all_module_statuses()
+4. **Report** a concise summary to the caller:
+   ```
+   Updated tracking: M{N} -> {new status}
+   Summary: {N} Complete, {N} L1 Pass, {N} In Progress, {N} Blocked, {N} Not Started [, {N} Deployed]
+   ```
 
-    # Count by status
-    total = len(statuses)
-    complete = sum(1 for s in statuses.values() if s == 'complete')
-    in_progress = sum(1 for s in statuses.values() if s == 'in_progress')
-    l1_pass = sum(1 for s in statuses.values() if s == 'l1_pass')
-    blocked = sum(1 for s in statuses.values() if s == 'blocked')
-    not_started = sum(1 for s in statuses.values() if s == 'not_started')
+## Outputs
 
-    # Update summary section in module-tracking.md
-    update_summary({
-        'total': total,
-        'complete': complete,
-        'in_progress': in_progress + l1_pass,
-        'blocked': blocked,
-        'not_started': not_started
-    })
-```
+Files modified:
+- `tracking/module-tracking.md` — Summary counts, Module Status row(s), Blockers section (if relevant), History section (append-only)
 
-## Usage Examples
+No side effects outside the tracking file. This command does not touch source code, architecture, or any external services.
 
-### Automatic Sync (Called by generate-code)
+## Rules
 
-```bash
-# Sync all module tracking
-update-tracking
+1. **Tracking is append-only for history** — never rewrite or remove History entries, only add.
+2. **Summary must match the table** — counts are derived from the table, not stored independently.
+3. **Blockers section stays in sync** — if a module transitions to `Blocked`, add it to Blockers with the reason; if it transitions away from `Blocked`, remove the entry.
+4. **Never silently clear a blocker** — targeted updates from `Blocked` to another status require the caller to pass the new status explicitly.
+5. **Registry is source of truth for membership** — modules are added to the tracking table only when they appear in the architecture's Module Registry.
 
-# Output:
-Synchronizing module tracking...
-✓ Reading /tracking/module-tracking.md
-✓ Found 5 modules to track
-✓ Updated summary counts
-  - Complete: 2
-  - In Progress: 2
-  - Blocked: 0
-  - Not Started: 1
-✓ Tracking document synchronized
-```
+## Agents Used
 
-### Manual Status Update
+None. This command is a file-update utility and does not invoke any agents.
 
-```bash
-# Update specific module status
-update-tracking -module=M2 -status=complete
+## Core Requirements
 
-# Output:
-Updating M2 (API Layer) status to complete...
-✓ Updated in module-tracking.md
-✓ Recalculated progress: 3/5 modules complete
-```
+- **MUST** refuse to operate if prerequisites are missing
+- **MUST** preserve History (append-only)
+- **MUST** recalculate Summary counts on every run (targeted or sync mode)
+- **MUST** keep Blockers section consistent with Module Status table
+- **MUST NOT** modify any file outside `tracking/module-tracking.md`
+- **MUST NOT** invoke agents
 
-### After L1 Pass
-
-```bash
-# Mark module as L1 passed
-update-tracking -module=M3 -status=l1_pass
-
-# Output:
-Updating M3 (Core UI) status to l1_pass...
-✓ Updated in module-tracking.md
-✓ Summary: 2 complete, 2 in progress, 1 not started
-```
-
-## Integration with generate-code
-
-The `generate-code` command automatically invokes tracking-update-agent:
-
-```python
-# Within generate-code command
-def mark_module_l1_pass(module_id, coverage):
-    """Mark module L1 tests passed."""
-    INVOKE tracking-update-agent with:
-      - Event: module_l1_pass
-      - Module: {module_id}
-      - Coverage: {coverage}
-
-def mark_module_complete(module_id):
-    """Mark module as complete after L2 pass."""
-    INVOKE tracking-update-agent with:
-      - Event: implementation_complete
-      - Modules: all
-```
-
-## Module Tracking Document Format
+## Module Tracking Document Format (reference)
 
 ```markdown
 # Module Tracking
@@ -163,7 +101,8 @@ def mark_module_complete(module_id):
 ## Summary
 - Total Modules: 5
 - Complete: 2
-- In Progress: 2
+- L1 Pass: 1
+- In Progress: 1
 - Blocked: 0
 - Not Started: 1
 
@@ -183,7 +122,7 @@ def mark_module_complete(module_id):
 
 ## History
 
-### 2025-01-20
+### 2026-04-22
 - M1: Complete (85% coverage, L2 pass)
 - M2: Complete (82% coverage, L2 pass)
 - M3: L1 Pass (75% coverage)
@@ -193,30 +132,9 @@ def mark_module_complete(module_id):
 
 | Status | Description |
 |--------|-------------|
-| Not Started | Module implementation not yet begun |
-| In Progress | Module currently being implemented |
-| L1 Pass | Module passed L1 unit tests (meets coverage target) |
-| Blocked | Module blocked by test failure or dependency |
-| Complete | Module passed both L1 and L2 tests |
-| Deployed | Module deployed to target environment |
-
-## Best Practices
-
-1. **Run after each module completion** to keep tracking current
-2. **Use via tracking-update-agent** for automatic updates from generate-code
-3. **Always sync before reviews** for accurate reporting
-
-## Error Handling
-
-Common issues and resolutions:
-
-1. **Missing module-tracking.md**: Create initial file from architecture
-2. **Parse errors**: Check markdown table formatting
-3. **Invalid status**: Use only defined status values
-
----
-
-**Command Type**: Tracking Synchronization
-**Invocation**: Automatic (via generate-code) or Manual
-**Output**: Updated module-tracking.md
-**DCF Step**: Supports Step 4 (Implementation)
+| `Not Started` | Module implementation not yet begun |
+| `In Progress` | Module currently being implemented |
+| `L1 Pass` | Module passed L1 unit tests (meets coverage target); awaiting L2 |
+| `Blocked` | Module blocked by test failure, dependency, or promotion decision |
+| `Complete` | Module passed both L1 and L2 gates |
+| `Deployed` | Module deployed to a target environment |

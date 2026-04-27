@@ -29,7 +29,27 @@ Generates a complete Proof of Concept (POC) in a `/poc` folder. The POC has a fu
 
 1. `PRD.md` must exist (run `/generate-prd` first)
 2. `architecture/architecture.md` must exist (run `/generate-architecture` first)
-3. `architecture/modules/*`- if module breakdown exist **MUST verify from user before proceeding. Quote reason:  Architecture → POC → stakeholder feedback → sync-prd → promote-poc-design (bootstraps modules) → generate-code. Validates UX early, reduces module rework risk.**
+3. `architecture/modules/` must be empty (or not exist). If ANY module `.md` file exists under `architecture/modules/`, ERROR and STOP:
+
+   ```
+   ERROR: POC path requires a pre-module architecture.
+   architecture/modules/ contains {N} module files ({list}), which would conflict
+   with POC promotion — /promote-poc bootstraps modules from the POC, and cannot
+   reconcile pre-existing module specs.
+
+   Choose one:
+   (a) Delete architecture/modules/*.md and rerun /generate-poc. This is correct
+       if the POC path is what you want (recommended for early-stage projects
+       where stakeholder feedback will shape requirements).
+   (b) Skip the POC path entirely and use Path A: /generate-modules → /generate-code.
+       This is correct if requirements are stable and you are in execution mode.
+
+   The full workflow rationale is in DCF.md: Architecture → POC → stakeholder
+   feedback → sync-prd → promote-poc (bootstraps modules) → ready for production.
+   POC path validates UX early and reduces module rework risk for greenfield work.
+   ```
+
+   This is a hard gate. There is no interactive override.
 
 ## Process
 
@@ -48,8 +68,8 @@ Generates a complete Proof of Concept (POC) in a `/poc` folder. The POC has a fu
    - Read `architecture/modules/` if they exist - When POC modules are created this module structure must be followed
 
 3. **Determine UI Stack**
-   - If `TECHSTACK.md` specifies a technology stack, use it
-   - If not specified, use a common SPA stack. For example: React + TypeScript + Vite + Tailwind CSS
+   - If `TECHSTACK.md` specifies a technology stack, use it.
+   - If not specified, pick a stack idiomatic for the project's domain (e.g., for a web SPA: React + TypeScript + Vite + Tailwind CSS; for a desktop GUI: Tauri / Electron / native toolkit; for a CLI prototype: the project's primary language with a lightweight TUI library). Choose based on what the PRD describes, not a one-size-fits-all default.
    - The POC is UI-focused — no real backend server required
 
 ### Phase 2: POC Architecture Generation
@@ -133,7 +153,7 @@ POC MODE — IMPORTANT INSTRUCTIONS:
 - No real API calls, no real database, no real authentication
 - Mock data comes from local files or hardcoded constants in poc/src/mocks/
 - Every screen must be navigatable and interactive with mock data
-- Use the frontend stack from TECHSTACK.md (or the default, e.g., React + TS + Vite + Tailwind)
+- Use the frontend stack from TECHSTACK.md; if TECHSTACK.md is silent, pick a stack idiomatic for the project's domain (e.g., React + TS + Vite + Tailwind for a web SPA — pick something else if the project isn't a web SPA)
 ```
 
 **Implementation Rules for coding-agent:**
@@ -243,6 +263,16 @@ START → Read PRD.md + OVERVIEW.md + existing architecture (if any)
 | API endpoints | Direct imports from mock data files (no HTTP calls) |
 | File uploads / storage | Mock file list, no real upload |
 | Notifications | Toast/snackbar UI components (no real delivery) |
+
+## Data Model Conformance
+
+If `architecture/data-model.md` exists, read it before generating mocks. Mock data MUST conform to the entity shapes defined there:
+- Mock files in `poc/src/mocks/` use the **same field names and types** as the data model
+- Relationships between entities must be consistent with the data model's cardinality
+- Enum values must match those defined in the data model
+- This removes drift between POC mocks and the real schema — a huge quality win during promotion
+
+If `architecture/data-model.md` does not exist, derive mock shapes from the architecture and PRD as before.
 
 ## Mock Data Guidelines
 

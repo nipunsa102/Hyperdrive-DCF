@@ -92,3 +92,6 @@ cdk.out/
 
 # Local settings (keep local config out of repo)
 .claude/settings.local.json
+.claude/settings.json
+.claude/scheduled_tasks.lock
+

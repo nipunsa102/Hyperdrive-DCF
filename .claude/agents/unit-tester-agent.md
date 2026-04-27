@@ -31,7 +31,7 @@ You are invoked after module implementation is complete and L1 unit tests have b
 - Generate multiple report formats (terminal, JSON, HTML)
 - Capture full output for debugging
 - Provide actionable recommendations for failures
-- Coverage threshold is specified by the invoking command
+- Coverage threshold is specified in the provided context
 - NO MANUAL OVERRIDE: Tests must pass programmatically
 
 ## OUTPUT EXPECTATIONS

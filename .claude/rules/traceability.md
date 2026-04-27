@@ -29,6 +29,6 @@ All requirements must be traceable from PRD.md through to implementation.
 - All REQ-IDs from component's Implements tag must appear
 
 ## Validation
-- Run traceability-validator-agent to check coverage
+- The invoking context runs structural traceability validation to check coverage
 - No orphan requirements allowed (REQ in PRD but not in modules)
 - No invented requirements (REQ in module but not in PRD)

@@ -5,23 +5,23 @@ model: claude-opus-4-6
 
 ## Purpose
 
-Closes the POC feedback loop by merging validated changes from `poc/changelog.md` back into the PRD. Deprecates the old `PRD.md` and replaces it with the merged version.
+Closes the POC feedback loop by merging validated changes from `poc/poc-tracking/CHANGELOG.md` back into the PRD. Deprecates the old `PRD.md` and replaces it with the merged version.
 
 **What this command does:**
-- Reads `PRD.md` (merge base) and `poc/changelog.md` (validated changes)
+- Reads `PRD.md` (merge base) and `poc/poc-tracking/CHANGELOG.md` (validated changes)
 - Classifies each CL entry (`[CHANGE]`, `[NEW]`, `[FIX]`) and maps it to PRD sections
 - Deprecates the existing `PRD.md` by renaming it to `PRD-Deprecated-<datetime>.md`
 - Writes the new merged PRD as `PRD.md` (so it is immediately the active PRD)
-- Archives the changelog as `poc/changelog-Merged-<datetime>.md`
+- Archives the changelog as `poc/poc-tracking/changelog-Merged-<datetime>.md`
 
 **What this command does NOT do:**
-- Read `poc/change-tracking.md` — it is a PM log that may introduce noise
+- Read `poc/poc-tracking/change-tracking.md` — it is a PM log that may introduce noise
 - Invent requirements — only merges what is explicitly described in CL entries
 
 ## Prerequisites
 
 1. `PRD.md` must exist at project root
-2. `poc/changelog.md` must exist and contain at least one CL entry
+2. `poc/poc-tracking/CHANGELOG.md` must exist and contain at least one CL entry
 
 If either prerequisite fails, ERROR with a clear message and stop.
 
@@ -30,7 +30,7 @@ If either prerequisite fails, ERROR with a clear message and stop.
 ### Phase 1: Prerequisites Check
 
 1. Verify `PRD.md` exists at project root — if not, ERROR: "`PRD.md` not found at project root. Run `/generate-prd` first."
-2. Verify `poc/changelog.md` exists and is non-empty — if not, ERROR: "`poc/changelog.md` not found or empty. Run `/modify-poc` to create changelog entries first."
+2. Verify `poc/poc-tracking/CHANGELOG.md` exists and is non-empty — if not, ERROR: "`poc/poc-tracking/CHANGELOG.md` not found or empty. Run `/modify-poc` to create changelog entries first."
 
 ### Phase 2: Understanding
 
@@ -41,14 +41,14 @@ If either prerequisite fails, ERROR with a clear message and stop.
    - All acceptance criteria lists
    - Any deferred or out-of-scope sections
 
-2. **Read `poc/changelog.md`** — parse all CL entries:
+2. **Read `poc/poc-tracking/CHANGELOG.md`** — parse all CL entries:
    - Extract CL number, title, type tag (`[CHANGE]`, `[NEW]`, `[FIX]`)
    - Extract "PRD Sections Affected" (REQ-IDs or "None — new feature not in original PRD")
    - Extract "Description" and "Current State vs Original"
 
 3. **Classify each CL entry** by its type tag and map "PRD Sections Affected" to actual PRD sections.
 
-4. **Do NOT read `poc/change-tracking.md`** — it is excluded from this process.
+4. **Do NOT read `poc/poc-tracking/change-tracking.md`** — it is excluded from this process.
 
 ### Phase 3: Merge Planning
 
@@ -121,7 +121,7 @@ For each CL entry, determine the merge action:
 
 1. **Verify** the new `PRD.md` was written successfully (read it back to confirm)
 2. **Verify** `PRD-Deprecated-<datetime>.md` exists (the old PRD was preserved)
-3. **Rename** `poc/changelog.md` → `poc/changelog-Merged-<datetime>.md` (same timestamp as the deprecated PRD)
+3. **Rename** `poc/poc-tracking/CHANGELOG.md` → `poc/poc-tracking/changelog-Merged-<datetime>.md` (same timestamp as the deprecated PRD)
 4. **Report summary** to the user:
    - Number of CL entries merged
    - Breakdown by type (CHANGE / FIX / NEW)
@@ -132,11 +132,11 @@ For each CL entry, determine the merge action:
 ## Merge Rules (Critical)
 
 1. **Always deprecate before replacing** — rename existing `PRD.md` to `PRD-Deprecated-<datetime>.md` BEFORE writing the new `PRD.md`
-2. **Never read `poc/change-tracking.md`** — it is a PM log that may introduce noise into the merge
+2. **Never read `poc/poc-tracking/change-tracking.md`** — it is a PM log that may introduce noise into the merge
 3. **Preserve PRD structure** — the merged PRD must maintain the same section layout, table formats, markdown conventions, and REQ-ID naming patterns as the original
 4. **Annotate all changes** — every modification must be traceable to a CL entry via `(Updated from POC validation — CL-XXX)` or `(Added from POC validation — CL-XXX)`
 5. **No invention** — only merge what is explicitly described in changelog entries; do not add requirements, acceptance criteria, or user stories beyond what CL entries describe
-6. **Timestamp consistency** — all output files (`PRD-Deprecated-<datetime>.md` and `poc/changelog-Merged-<datetime>.md`) use the exact same datetime string
+6. **Timestamp consistency** — all output files (`PRD-Deprecated-<datetime>.md` and `poc/poc-tracking/changelog-Merged-<datetime>.md`) use the exact same datetime string
 
 ## Implementation Flow
 
@@ -145,15 +145,15 @@ START → Phase 1: Prerequisites Check
           ↓
    PRD.md exists? → NO → ERROR: "Run /generate-prd first"
           ↓ YES
-   poc/changelog.md exists and non-empty? → NO → ERROR: "Run /modify-poc first"
+   poc/poc-tracking/CHANGELOG.md exists and non-empty? → NO → ERROR: "Run /modify-poc first"
           ↓ YES
    Phase 2: Understanding
    ┌──────────────────────────────────────────────┐
    │  1. Read PRD.md — parse full structure       │
-   │  2. Read poc/changelog.md — parse CL entries │
+   │  2. Read CHANGELOG.md — parse CL entries     │
    │  3. Classify entries by type                 │
    │  4. Map entries to PRD sections              │
-   │  5. Do NOT read poc/change-tracking.md       │
+   │  5. Do NOT read change-tracking.md           │
    └──────────────────────────────────────────────┘
           ↓
    Phase 3: Merge Planning
@@ -179,7 +179,7 @@ START → Phase 1: Prerequisites Check
    ┌──────────────────────────────────────────────┐
    │  1. Verify new PRD.md written successfully   │
    │  2. Verify PRD-Deprecated-<dt>.md exists     │
-   │  3. Rename poc/changelog.md → archived       │
+   │  3. Rename CHANGELOG.md → archived           │
    │  4. Report summary to user                   │
    └──────────────────────────────────────────────┘
           ↓
@@ -199,15 +199,15 @@ This is a document transformation task. The command instructs Claude directly to
 - [ ] All `[NEW]` entries added as new user stories in appropriate sections
 - [ ] Every modification annotated with `(Updated from POC validation — CL-XXX)` or `(Added from POC validation — CL-XXX)`
 - [ ] Document Info updated (version incremented, status "Merged from POC", date updated)
-- [ ] `poc/changelog.md` renamed to `poc/changelog-Merged-<datetime>.md`
+- [ ] `poc/poc-tracking/CHANGELOG.md` renamed to `poc/poc-tracking/changelog-Merged-<datetime>.md`
 - [ ] All output files use the same datetime string
 
 ## Core Requirements
 
 - **MUST** verify prerequisites before proceeding
 - **MUST** read `PRD.md` for full structure before deprecating it
-- **MUST** read `poc/changelog.md` for CL entries
-- **MUST NOT** read `poc/change-tracking.md`
+- **MUST** read `poc/poc-tracking/CHANGELOG.md` for CL entries
+- **MUST NOT** read `poc/poc-tracking/change-tracking.md`
 - **MUST** deprecate existing `PRD.md` to `PRD-Deprecated-<datetime>.md` BEFORE writing the new `PRD.md`
 - **MUST** write the merged PRD as `PRD.md` (not a separate file)
 - **MUST** preserve PRD structure, table formats, and REQ-ID conventions
@@ -215,3 +215,14 @@ This is a document transformation task. The command instructs Claude directly to
 - **MUST** generate a user-friendly "What Changed" summary section in the merged PRD (not a raw copy of changelog entries)
 - **MUST** archive the changelog with matching timestamp
 - **MUST** report results to the user upon completion
+
+## Next Step
+
+After `/sync-prd` completes, the PRD is authoritative but the production design is not yet updated to reflect the merged changes. Run `/prepare-poc-promo` next to generate the gap-analysis questionnaire; after filling that in, run `/promote-poc` to merge architecture, bootstrap modules, and implement production code.
+
+Flow position:
+
+```
+... → /modify-poc (repeat) → /sync-prd → /prepare-poc-promo → [human fills in] → /promote-poc → /setup-env
+                                          ↑ you are here
+```
