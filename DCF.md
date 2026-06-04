@@ -104,6 +104,15 @@ The POC loop validates requirements with stakeholders before committing to produ
 Agents are invoked by commands — never called directly by the user.
 
 ```
+/generate-prd
+  '-- traceability-validator-agent  REQ-ID coverage validation
+
+/generate-architecture
+  '-- traceability-validator-agent  REQ-ID coverage validation
+
+/generate-modules
+  '-- traceability-validator-agent  REQ-ID coverage + sum test validation
+
 /generate-code
   |-- coding-agent              writes implementation code
   |-- unit-test-generator-agent generates L1 unit tests
@@ -112,6 +121,14 @@ Agents are invoked by commands — never called directly by the user.
   |-- l2-integration-agent      cross-module integration tests
   |-- code-review-agent         optional quality review
   '-- tracking-update-agent     updates module-tracking.md
+
+/generate-poc
+  |-- coding-agent              implements POC modules (POC mode)
+  '-- smoke-test-agent          verifies POC starts and renders
+
+/modify-poc
+  |-- coding-agent              modifies POC code (POC mode)
+  '-- smoke-test-agent          verifies POC still works
 
 /promote-poc
   |-- re-architect-agent             merges POC + main architecture, bootstraps modules
