@@ -1,7 +1,7 @@
 ## Hyperdrive — DCF Command Order
 
 ```
-/generate-prd → /generate-architecture → /generate-modules → /generate-code → /setup-env → /deploy-module
+/generate-prd → /generate-architecture → /plan-deployment → [human fills DEPLOYMENT.md] → /generate-modules → /generate-code
 ```
 POC loop (optional, after `/generate-architecture` — **requires `architecture/modules/` to be empty**; `/promote-poc` bootstraps modules from the POC):
 ```
