@@ -1,6 +1,6 @@
 ---
 description: Generate a structured Product Requirements Document from OVERVIEW.md with hierarchical REQ-IDs
-model: claude-opus-4-6
+model: claude-fable-5
 ---
 
 ## Purpose

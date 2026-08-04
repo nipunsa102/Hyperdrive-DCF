@@ -1,6 +1,6 @@
 ---
 description: Generate a navigatable POC with mock data and mock integrations
-model: claude-opus-4-6
+model: claude-fable-5
 ---
 
 **Switches**: `-special`
@@ -329,5 +329,4 @@ The only gate is: does it start and can you click through it?
 - `l2-integration-agent` — No integration tests for POC
 - `traceability-validator-agent` — No traceability validation for POC
 - `tracking-update-agent` — No tracking updates for POC
-- `deploy-config-agent` — No deployment for POC
 - `code-review-agent` — No code review for POC

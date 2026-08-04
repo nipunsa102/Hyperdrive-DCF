@@ -1,6 +1,6 @@
 ---
 description: Implement stakeholder-requested changes to promoted production code with full tracking and test gates
-model: claude-opus-4-6
+model: claude-fable-5
 ---
 
 **Switches**: `-change`, `-new`, `-fix`
@@ -113,12 +113,16 @@ This command maintains one tracking file at `tracking/change-tracking.md`:
    - Which `src/` modules need code changes?
    - Does the change touch integrations between modules (triggering L2)?
 
-2. **Determine scope based on mode:**
+2. **PRD integration guard** — before any edit is planned:
+   - **Duplicate check (`-new`):** Verify no existing REQ already covers the requested feature, fully or partially. Fully covered → tell the user and handle it under `-change` semantics against that REQ (no new REQ-ID). Partially covered → amend the existing REQ/AC for the overlapping part and assign a new REQ-ID only for the genuinely new remainder.
+   - **Conflict scan (all modes):** Find every other user story, acceptance criterion, or section that references the behavior being changed. Anything the change would contradict joins the edit plan (each reconciled item gets its own CT-XXX annotation) — the PRD must never be left self-contradictory.
+
+3. **Determine scope based on mode:**
    - **`-change` mode:** Always updates PRD acceptance criteria (or user story). May also update architecture and module specs if the change affects component boundaries, integration, or data model.
    - **`-new` mode:** MUST update PRD (new user story + acceptance criteria), architecture (new or expanded component), and at least one module spec (Requirement Coverage table + acceptance criteria). If the feature warrants a new module, create `architecture/modules/module-{N}-{name}.md` and add a row to the Module Registry and Integration Matrix in `architecture/architecture.md`.
    - **`-fix` mode:** Code + tests only by default. PRD acceptance criteria MAY be refined to clarify correct behavior if the original wording was ambiguous (matching `/sync-prd` treatment of `[FIX]` entries). Architecture and module specs are NOT updated — the design was correct, the code wasn't.
 
-3. **Build affected-module list** in dependency order (topological sort on the Integration Matrix, same as `/promote-poc` Phase 4). This determines the order in which `coding-agent` runs.
+4. **Build affected-module list** in dependency order (topological sort on the Integration Matrix, same as `/promote-poc` Phase 4). This determines the order in which `coding-agent` runs.
 
 ### Phase 3: Implementation
 
@@ -127,6 +131,8 @@ This command maintains one tracking file at `tracking/change-tracking.md`:
    - **`-new` mode:** Add a new user story row to the appropriate section's user story table and add new acceptance criteria items. Pick the next available REQ-ID in that section (never reuse retired IDs). Annotate each addition with `(Added via /modify — CT-XXX)`.
    - **`-fix` mode:** Update acceptance criteria only if the fix clarifies ambiguously specified behavior. Annotate with `(Refined via /modify — CT-XXX)`. Otherwise skip — a pure bug fix may require no PRD change.
    - **All modes:** Increment `Document Info → Version` by the patch digit (e.g., 1.8 → 1.8.1). Update `Last Updated` to today. Leave `Status` unchanged (it was last set by `/sync-prd`).
+   - **All modes — surgical edits:** Touch only the items identified in Phase 2. Never rewrite, reorder, or delete unrelated PRD content, and never renumber existing REQ-IDs. If a change retires behavior, mark the item `(Retired via /modify — CT-XXX)` — do not erase it (its REQ-ID is never reused).
+   - **All modes — post-edit integrity check:** Re-read the edited PRD and verify REQ-IDs are still unique, nothing was renumbered or lost, tables are well-formed, and no requirement contradicts another. Fix any breakage before touching architecture or code.
    - Do NOT add a "What Changed" section. That section is owned by `/sync-prd`. Traceability here flows through CT-XXX annotations and git history.
 
 2. **Update `architecture/architecture.md`** (REQUIRED for `-new`, sometimes for `-change`, SKIP for `-fix`)
@@ -203,6 +209,7 @@ After successful implementation and all test gates pass:
 
 1. Determine the next CT number:
    - If the file does not exist, start with CT-001 and create the file with header `# Change Tracking`
+   - If the file exists but contains no CT-XXX entries yet (e.g., only free-form notes from environment or deployment work), keep the existing content untouched and start appending at CT-001
    - Otherwise, increment from the last CT number
 2. Append a new entry with today's date, the mode tag (`[CHANGE]`, `[NEW]`, or `[FIX]`), and the raw switch text — exactly as the PM wrote it
 
@@ -232,11 +239,13 @@ START → Read switch (exactly one of -change, -new, -fix REQUIRED)
    ┌──────────────────────────────────────────────┐
    │  1. Identify affected REQ-IDs / components / │
    │     modules / src files                       │
-   │  2. Determine scope:                         │
+   │  2. PRD guard: duplicate check + conflict    │
+   │     scan (never leave PRD self-contradictory)│
+   │  3. Determine scope:                         │
    │     -change → PRD always + optional arch/spec│
    │     -new    → PRD + arch + spec + code       │
    │     -fix    → code/tests (optional PRD AC)   │
-   │  3. Build dependency-ordered module list     │
+   │  4. Build dependency-ordered module list     │
    └──────────────────────────────────────────────┘
           ↓
    Phase 3: Implementation
@@ -297,6 +306,7 @@ Files NEVER touched:
 - **Module tracking is owned by `tracking-update-agent`** — never edit `tracking/module-tracking.md` directly
 - **All test gates apply** — L1 (60% coverage, 5-test max), smoke, and L2 when cross-module. Failures STOP the command with a clear error
 - **Annotate every PRD edit** with `(Updated via /modify — CT-XXX)`, `(Added via /modify — CT-XXX)`, or `(Refined via /modify — CT-XXX)`
+- **PRD edits are surgical** — only content identified in the Phase 2 impact analysis may be touched; never add a REQ that duplicates existing coverage (amend the existing REQ instead); retiring behavior marks the item `(Retired via /modify — CT-XXX)` rather than erasing it; any requirement the change contradicts is reconciled in the same edit
 - **Respect hard test limits** from `test-limits.md` — 5 tests per module, 10 integration tests total
 - **Preserve untouched code** — `coding-agent` is invoked with `EXISTING CODE: Read existing files before writing`, instructing it to preserve unrelated logic, tests, and public interfaces
 
@@ -317,7 +327,6 @@ Files NEVER touched:
 - `poc-gap-analyzer-agent` — POC is not in scope
 - `coherence-checker-agent` — heavy coherence analysis is owned by `/promote-poc`; `/modify` stays narrow to its requested scope
 - `traceability-validator-agent` — not invoked by default (small-scope edits don't need a global traceability sweep). A future flag could add this if it becomes valuable
-- `deploy-config-agent` — deployment is out of scope
 
 ## Core Requirements
 
@@ -325,6 +334,7 @@ Files NEVER touched:
 - **MUST** have exactly one switch (`-change`, `-new`, or `-fix`) — error if none or multiple provided
 - **MUST** read existing `src/` files via `coding-agent` before modifying them (preserve unrelated logic)
 - **MUST** update `PRD.md` in place for every `-change` and `-new`, and for `-fix` when clarification is warranted
+- **MUST** run the PRD integration guard before editing (duplicate check for `-new`, conflict scan for all modes) and the post-edit integrity check after editing
 - **MUST** update `architecture/` and module specs when `-new` is used
 - **MUST** run L1 gate for every touched module (60% coverage, max 5 tests)
 - **MUST** run smoke-test-agent after L1 passes for every runnable module
@@ -340,6 +350,7 @@ Files NEVER touched:
 - [ ] Exactly one switch provided and validated
 - [ ] Prerequisites verified (post-promotion state)
 - [ ] `PRD.md` updated in place with CT-XXX annotations (for `-change`, `-new`, and `-fix` when AC is refined)
+- [ ] PRD integrity verified post-edit — unique REQ-IDs, no renumbering, no contradictions, unrelated content untouched
 - [ ] `architecture/architecture.md` updated (for `-new`, and `-change` when component boundaries shift)
 - [ ] Affected module specs updated (for `-new`, and `-change` when the spec is impacted)
 - [ ] Code changes applied under `src/` only (never under `poc/`)

@@ -1,6 +1,6 @@
 ---
 description: Generate POC-to-production gap analysis template for human decision input
-model: claude-opus-4-6
+model: claude-fable-5
 ---
 
 ## Purpose

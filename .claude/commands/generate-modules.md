@@ -1,6 +1,6 @@
 ---
 description: Extract modules from architecture with requirement traceability
-model: claude-opus-4-6
+model: claude-fable-5
 ---
 
 ## Purpose
@@ -12,6 +12,17 @@ Extract modules from architecture.md components and create module specifications
 - `PRD.md` must exist (run `/generate-prd` first)
 - `architecture/architecture.md` must exist (run `/generate-architecture` first)
 - Architecture components must have "Implements:" tags
+- `DEPLOYMENT.md` must exist at project root with **no unfilled `<!-- REQUIRED` markers** (run `/plan-deployment` first, then fill in every decision — pre-filled decisions count as filled). If missing or incomplete, ERROR and STOP:
+
+  ```
+  ERROR: DEPLOYMENT.md is missing (or has unfilled decisions):
+  - [Gap ID]: [question text]
+  Module specs must reflect the target environment (identity source, data access
+  model, process topology, configuration mechanism). Run /plan-deployment,
+  fill in every <!-- REQUIRED: ... --> placeholder, then re-run /generate-modules.
+  ```
+
+  (POC-path projects never run this command — `/promote-poc` bootstraps modules from the POC using `poc/temp/poc_promotion/POC_PROMO_PREP.md` instead.)
 
 ## Process
 
@@ -26,7 +37,14 @@ Extract modules from architecture.md components and create module specifications
    - Understand component relationships and data flows
    - Note which REQ-IDs each component claims to implement
 
-3. **Check for module-guide.md**
+3. **Read DEPLOYMENT.md** (deployment & environment decisions from `/plan-deployment`)
+   - Verify no unfilled `<!-- REQUIRED` markers remain (see Prerequisites)
+   - Extract the decisions that shape module design: identity integration model and local-dev identity strategy (AUTH-*), data platform and access model (DATA-*), deployable topology and compute model (DEP-*), configuration mechanism and canonical key names (SEC-* + Configuration Key Plan), integration tenancy (INT-*)
+   - Module specs MUST reflect these decisions wherever they change a module's design (e.g., an auth module specifies decoding a platform-injected identity vs. an app-level sign-in flow, plus the local dev-mode identity and its deployed-environment guard; an ingestion module specifies CLI vs. scheduled-job execution shape; a foundation module specifies the config module and data-access credential model)
+   - Module specs describe design, not provisioning — resource-creation steps stay in `DEPLOYMENT.md`'s Resource & Naming Plan
+   - `architecture/architecture.md` stays platform-agnostic — do NOT copy platform specifics into it (the Module Registry and Integration Matrix added in Phase 3 remain platform-neutral)
+
+4. **Check for module-guide.md**
    - If exists, follow grouping instructions
    - If not, determine logical module boundaries based on architecture
 
@@ -562,6 +580,11 @@ Sum(Module 1 + Module 2 + ... + Module N) == architecture.md
 19. [ ] Pseudo-code included ONLY for complex/non-obvious logic?
 20. [ ] All diagrams have "Implements:" tags?
 21. [ ] No unnecessary diagrams for simple CRUD operations?
+
+**Deployment Alignment Checks:**
+22. [ ] DEPLOYMENT.md fully filled (no `<!-- REQUIRED` markers) before generation started?
+23. [ ] Module specs reflect DEPLOYMENT.md decisions wherever they change module design (identity source + dev-mode guard, data access model, config module + canonical keys, job execution shape)?
+24. [ ] No platform specifics copied into architecture.md (stays platform-agnostic)?
 
 **All checks must PASS before /generate-modules completes.**
 

@@ -1,6 +1,6 @@
 ---
 description: Full POC promotion — merges architecture, implements production code, runs test gates, and produces a configuration guide
-model: claude-opus-4-6
+model: claude-fable-5
 ---
 
 ## Purpose
@@ -486,7 +486,7 @@ If a POC config guide exists (e.g., `poc/docs/config-guide.md` or the project's 
 - Commands and URLs must be copy-pasteable — verify each command references a tool the project actually uses (per `TECHSTACK.md`).
 - If the promoted code requires non-env-var provider configuration (callback URLs, roles, actions, policies, triggers, bucket policies, IAM permissions, etc.), include it in the relevant section with the exact configuration derived from the code.
 - No framework-level vendor assumptions. If you find yourself writing "Auth0" or "Bedrock" or any other provider name, verify it comes from the project's own `TECHSTACK.md` / `POC_PROMO_PREP.md` / architecture — not from framework defaults.
-- Assume zero provider-dashboard familiarity. For every step that references a provider UI, state the exact navigation path (tenant/workspace → section → page → field) and name the UI element the user is expected to interact with. Never write instructions that require the reader to already know how to switch tenants, accounts, projects, workspaces, or environments within the provider. If an action must happen inside a specific tenant/workspace/project, state that explicitly before the step (e.g., "Switch to the `wisflicks-production` tenant via the top-left dropdown, then ..."). When a concept is easy to confuse with a similar one in the same provider (e.g., session-encryption secret vs. OAuth client secret, provider-level OAuth credential vs. per-tenant connection), disambiguate in-line at the step where the confusion would occur — not in a separate glossary.
+- Assume zero provider-dashboard familiarity. For every step that references a provider UI, state the exact navigation path (tenant/workspace → section → page → field) and name the UI element the user is expected to interact with. Never write instructions that require the reader to already know how to switch tenants, accounts, projects, workspaces, or environments within the provider. If an action must happen inside a specific tenant/workspace/project, state that explicitly before the step (e.g., "Switch to the `<project>-production` tenant via the top-left dropdown, then ..."). When a concept is easy to confuse with a similar one in the same provider (e.g., session-encryption secret vs. OAuth client secret, provider-level OAuth credential vs. per-tenant connection), disambiguate in-line at the step where the confusion would occur — not in a separate glossary.
 - **Compare against, and build on, the POC config guide — don't repeat it.** If a POC config guide exists (e.g., `poc/docs/config-guide.md` or any config guide detected under `poc/`), read it in full before generating the production guide. The production guide must:
   - **Reuse the POC guide's wording and structure** where the step is identical (e.g., Deepgram signup URL, the `openssl rand -hex 32` command). Do not paraphrase for the sake of paraphrase — conformity reduces reader burden.
   - **Add only what's different for production** — separate tenants/projects/accounts, production-grade credentials (not shared dev keys), callback URLs on the prod domain, least-privilege IAM policies, production model IDs, etc. Start each section by stating *what changes vs. the POC*.
@@ -612,7 +612,7 @@ Options for what to do with `poc/` after promotion:
 1. Review `CONFIG_GUIDE.md` and follow each section to obtain credentials and populate `.env`
 2. Run `/setup-env` to run migrations, seed reference data, and verify external service connectivity
 3. Start the app using the project's dev command (e.g., `npm run dev`, `python manage.py runserver`, `go run .`, `bundle exec rails server` — whatever the project README or manifest documents) and walk through a primary user flow
-4. When ready for deployment: `/deploy-module` (when implemented) or deploy manually per `CONFIG_GUIDE.md` §5
+4. When ready for production deployment: the future `/deploy-to-prod` command (not yet implemented), or deploy manually per `CONFIG_GUIDE.md`
 ```
 
 The report is **metadata and history** — it does not duplicate the configuration steps from `CONFIG_GUIDE.md`.

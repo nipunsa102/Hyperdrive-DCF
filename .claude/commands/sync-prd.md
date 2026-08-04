@@ -1,6 +1,6 @@
 ---
 description: Merge validated POC changelog entries into PRD.md (deprecates old PRD)
-model: claude-opus-4-6
+model: claude-opus-4-8
 ---
 
 ## Purpose
