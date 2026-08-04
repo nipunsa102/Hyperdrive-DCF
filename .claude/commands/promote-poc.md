@@ -1,6 +1,6 @@
 ---
 description: Full POC promotion — merges architecture, implements production code, runs test gates, and produces a configuration guide
-model: claude-opus-4-6
+model: claude-fable-5
 ---
 
 ## Purpose
@@ -612,7 +612,7 @@ Options for what to do with `poc/` after promotion:
 1. Review `CONFIG_GUIDE.md` and follow each section to obtain credentials and populate `.env`
 2. Run `/setup-env` to run migrations, seed reference data, and verify external service connectivity
 3. Start the app using the project's dev command (e.g., `npm run dev`, `python manage.py runserver`, `go run .`, `bundle exec rails server` — whatever the project README or manifest documents) and walk through a primary user flow
-4. When ready for deployment: `/deploy-module` (when implemented) or deploy manually per `CONFIG_GUIDE.md` §5
+4. When ready for production deployment: the future `/deploy-to-prod` command (not yet implemented), or deploy manually per `CONFIG_GUIDE.md`
 ```
 
 The report is **metadata and history** — it does not duplicate the configuration steps from `CONFIG_GUIDE.md`.

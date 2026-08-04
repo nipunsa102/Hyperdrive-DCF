@@ -11,7 +11,7 @@ paths:
 - Project manifest and config files (e.g., `package.json`, `pyproject.toml`, `go.mod`, `tsconfig.json`)
 - `.gitignore`, `.env*`
 - Documentation: `CLAUDE.md`, `OVERVIEW.md`, `TECHSTACK.md`, `README.md`, `PRD.md`
-- Generated DCF artifacts: `CONFIG_GUIDE.md`, `POC_PROMOTION_REPORT.md`
+- Generated DCF artifacts: `CONFIG_GUIDE.md`, `POC_PROMOTION_REPORT.md`, `DEPLOYMENT.md` (template by `/plan-deployment`, completed by the human — direct path)
 
 **NOT allowed at root** (must be in `src/`):
 - Source code files (e.g., `.ts`, `.py`, `.go`, `.js`)
@@ -42,7 +42,7 @@ project-root/
 ├── tests/
 │   ├── unit/                  # L1: Coverage gate
 │   ├── integration/           # L2: Blocking gate
-│   ├── e2e/                   # L3: Non-blocking
+│   ├── e2e/                   # E2E journeys (headless browser for UI; blocking gate in /generate-code)
 │   └── reports/               # Generated test reports (gitignored)
 ├── poc/                       # POC output directory
 │   ├── dependencies & configs # Self-contained (e.g., package.json, requirements.txt)

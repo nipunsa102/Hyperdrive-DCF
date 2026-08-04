@@ -35,6 +35,15 @@ HARD LIMITS on test case generation. These are NOT suggestions - they are enforc
 | Error handling | 2 |
 | **Total** | **10** |
 
+## E2E Journey Tests (direct path, `/generate-code` E2E gate)
+
+**Maximum 10 journey tests total.** (HARD LIMIT)
+
+- Headless browser for UI systems (mandatory); API/CLI journeys otherwise
+- Derived from architecture user journeys + module acceptance criteria, prioritized by requirement criticality
+- Each journey tagged with the REQ-IDs it exercises
+- Module-scope checks (during the per-module loop): maximum 2 checks per screen, ephemeral (not persisted)
+
 ## Why These Limits?
 
 1. **Quality over quantity** - More tests ≠ better tests

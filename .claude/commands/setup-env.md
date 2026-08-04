@@ -1,6 +1,6 @@
 ---
 description: Initialize the runtime environment after /promote-poc — validate configuration, apply backend schema/migrations, seed reference data, verify external service connectivity, and confirm the app is ready to run.
-model: claude-opus-4-6
+model: claude-opus-4-8
 ---
 
 **Switches**: `-skip-smoke`, `-verify-only`
@@ -15,7 +15,9 @@ Makes the promoted code actually runnable against a configured backend. After `/
 
 **This command is framework-agnostic.** It makes no assumptions about which database, ORM, authentication provider, AI/ML provider, cache, queue, storage backend, or any other external service the project uses — and no assumptions about what configuration file format or location the project uses. Everything is detected from the project's own files.
 
-**Position in flow:** After `/promote-poc` AND after the human has filled in the project's configuration file(s) per `CONFIG_GUIDE.md`. Before `/deploy-module` (when implemented).
+**POC path only.** On the direct path, `/generate-code` bootstraps and verifies the dev environment itself (driven by `DEPLOYMENT.md`) — this command is not part of that path.
+
+**Position in flow:** After `/promote-poc` AND after the human has filled in the project's configuration file(s) per `CONFIG_GUIDE.md`. Before production deployment (future `/deploy-to-prod`).
 
 **What this command does:**
 - Detects the project's configuration convention from its POC + `TECHSTACK.md` + source code
@@ -30,7 +32,7 @@ Makes the promoted code actually runnable against a configured backend. After `/
 **What this command does NOT do:**
 - Provision cloud infrastructure (creating accounts, projects, tenants, buckets, databases, DNS entries — those are human steps in `CONFIG_GUIDE.md`)
 - Seed sample user content, demo data, or any non-reference data
-- Deploy the app to any environment (that's future `/deploy-module`)
+- Deploy the app to any environment (that's the future `/deploy-to-prod`)
 - Rotate or generate real secrets (the human populates configuration from `CONFIG_GUIDE.md`)
 - Assume any particular vendor, provider, technology, or configuration file format — all detection is project-driven
 - Touch anything under `poc/`
@@ -363,7 +365,7 @@ Files NEVER touched:
 2. **Never logs secret values** — only variable names, service names, hostnames / identifiers derived from env vars, HTTP status codes, and derived outcomes.
 3. **Production-safe seed discipline** — refuses to run dev seeds that insert sample user content. If the project has only a dev seed, skips with a clear explanation.
 4. **Idempotent where possible** — re-running `/setup-env` after a partial failure should be safe. Migrations are tool-managed (the project's chosen tool tracks applied migrations); reference seeds should use `upsert` patterns by convention.
-5. **Separation of concerns** — `/setup-env` does runtime setup; does not modify code or architecture. Code issues surface from `/promote-poc`; infrastructure provisioning is a human step per `CONFIG_GUIDE.md`; deployment is future `/deploy-module`.
+5. **Separation of concerns** — `/setup-env` does runtime setup; does not modify code or architecture. Code issues surface from `/promote-poc`; infrastructure provisioning is a human step per `CONFIG_GUIDE.md`; deployment is the future `/deploy-to-prod`.
 6. **`-verify-only` is non-mutating** — runs only validation + connectivity, skips migrations and seeds. Safe to run against a live production environment for health checks.
 7. **Service-failure tolerance** — a single external service failure does not abort the whole run; the report summarizes all failures so the user can fix them in batch.
 8. **Never touches `poc/`** — POC is historical after promotion.

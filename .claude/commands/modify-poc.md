@@ -1,6 +1,6 @@
 ---
 description: Implement stakeholder-requested changes to the POC with full tracking
-model: claude-opus-4-6
+model: claude-opus-4-8
 ---
 
 **Switches**: `-change`, `-new`, `-fix`
@@ -302,7 +302,6 @@ Files NEVER touched:
 - `l2-integration-agent` — No integration tests for POC
 - `traceability-validator-agent` — No traceability validation for POC
 - `tracking-update-agent` — No main tracking updates for POC changes
-- `deploy-config-agent` — No deployment for POC
 - `code-review-agent` — No code review for POC
 
 ## Core Requirements

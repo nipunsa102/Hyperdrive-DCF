@@ -15,18 +15,21 @@ Most AI-assisted development starts with code and hopes a coherent architecture 
 - **Rapid prototyping**: Generate a navigatable POC, validate with stakeholders, iterate with change tracking, and sync validated changes back to the PRD -- all before engineering begins
 
 ```
-                                    Main Path
-Requirements ──→ PRD ──→ Architecture ──→ Module Specs ──→ Code ──→ Deployment
-                  ↑            ↑               ↑             ↑
-                  │            └───── /promote-poc ───────────┘
+                                        Main Path (direct)
+Requirements ──→ PRD ──→ Architecture ──→ Deployment Plan ──→ Module Specs ──→ Code ──→ Deployment
+                  ↑           ↑           (human decisions)        ↑            ↑        (future)
+                  │           │                                    │            │
+                  │           └─────────── /promote-poc ───────────┴────────────┘
                   │             (merge + validate + implement + test)
-                  │                       ↑
-                  │                  Prepare Promo
-                  │                  (gap decisions)
-                  │                       ↑
+                  │                             ↑
+                  │                       Prepare Promo
+                  │                      (gap decisions)
+                  │                             ↑
                Sync PRD ←── Modify POC ←── Generate POC
               (changelog)  (stakeholders)   (mock data)
 ```
+
+On the **direct path**, `/plan-deployment` inserts a human decision gate between architecture and module design: it generates `DEPLOYMENT.md` (deployment & environment decisions), and `/generate-modules` / `/generate-code` refuse to run until every decision in it is filled — see [Deployment Planning](#deployment-planning-direct-path). The pipeline ends with the app **running in a bootstrapped dev environment**; production deployment is the future `/deploy-to-prod` (not yet implemented).
 
 Every artifact is **derived** from the one above it. Modules are extracted from architecture, not invented. The Sum Test guarantees completeness:
 
@@ -82,8 +85,10 @@ When stakeholders are satisfied and the POC is validated:
 Product Manager    writes OVERVIEW.md, runs /generate-prd, demos POC,
                    captures stakeholder feedback via /modify-poc
 
-Engineering        decides tech stack (TECHSTACK.md), takes over after
-                   PRD is validated, runs /generate-code
+Engineering        decides tech stack (TECHSTACK.md), takes over once the
+                   PRD is validated -- fills the decision template
+                   (POC_PROMO_PREP.md here; DEPLOYMENT.md on the direct
+                   path) and runs the promotion / code-generation pipeline
 
 Stakeholders       review POC demos, provide feedback -- never touch
                    the codebase
@@ -116,6 +121,26 @@ The analyzer is passed a **POC maturity prior** (`mock-heavy` / `hybrid` / `prod
 ### After Promotion -- Making It Runnable
 
 `/promote-poc` produces the code and a config template, but does not touch real credentials or run migrations. After the human fills in production configuration (per `CONFIG_GUIDE.md`), `/setup-env` detects the project's migration tool, applies schema migrations, seeds reference data (taxonomy / enums only -- never sample user content), verifies connectivity to every declared external service, and runs a runtime smoke test against real backends.
+
+## Deployment Planning (Direct Path)
+
+The POC path captures production environment decisions in `POC_PROMO_PREP.md` via `/prepare-poc-promo`. The **direct path** has its own decision gate: after `/generate-architecture`, run `/plan-deployment`. It invokes the `deployment-gap-analyzer-agent` to scan the PRD, architecture, and data model for every environment-coupled decision the design demands but no project document answers, then generates `DEPLOYMENT.md` at project root -- a vendor-agnostic template covering deployment target & compute (DEP), data & storage (DATA), identity & access (AUTH), secrets & configuration (SEC), external integrations (INT), and build/delivery/operations (OPS), always including the **dev run mode** decision (fully local / cloud / hybrid).
+
+```
+/generate-architecture
+         │
+         ▼
+/plan-deployment ─────→ DEPLOYMENT.md  (template with <!-- REQUIRED --> placeholders)
+         │
+         ▼   [you fill in every decision -- re-run to enrich & read-only-verify the resource plan]
+         │
+/generate-modules ──→ /generate-code   (both REFUSE to run while any decision is unfilled)
+```
+
+- **The document is the questionnaire.** Decisions your project documents already answer (`TECHSTACK.md`, `OVERVIEW.md`, ...) are pre-filled with the source cited; everything else is a `<!-- REQUIRED -->` placeholder for you. No interactive Q&A.
+- **Downstream commands hard-block on it.** `/generate-modules` and `/generate-code` scan `DEPLOYMENT.md` and refuse to run while the file is missing or any placeholder is unfilled -- so module specs and code are always generated for a known target environment, never environment-blind.
+- **Direct path only.** `/plan-deployment` hard-fails if `poc/src/` exists; on the POC path the same decisions flow through `/prepare-poc-promo` → `/promote-poc` instead. The two flows never mix.
+- **Read-only toward your platform.** Re-run after choosing a provider and it derives the Resource & Naming Plan and verifies names, regions, and conventions via read-only CLI calls only. Dev resources get created later by `/generate-code`'s environment bootstrap; production resources wait for the future `/deploy-to-prod`.
 
 ## Installation
 
@@ -155,11 +180,11 @@ All commands are run as slash commands inside a Claude Code session.
 | 2b | `/modify-poc` | *(Optional, repeat)* Implements stakeholder-requested changes with full tracking |
 | 2c | `/sync-prd` | *(Optional)* Merges validated POC changes back into the PRD |
 | 2d | `/prepare-poc-promo` | *(Optional)* Generates gap analysis template for human production decisions |
-| 2e | `/promote-poc` | *(Optional)* Merges POC architecture, analyzes code, implements all modules with test gates, produces `POC_PROMOTION_REPORT.md`. **If you use the POC path (2a-2e), skip Steps 3-4** -- `/promote-poc` creates module specs, implements code, and runs test gates |
-| 3 | `/generate-modules` | Extracts module specs from architecture into `architecture/modules/`. Skipped if you used the POC path (Steps 2a-2c). Each module includes a Requirement Coverage table, user stories, acceptance criteria, and optional technical details (pseudo-code, schemas, API contracts) where they add clarity. Also generates the Module Registry and Integration Matrix in `architecture.md` |
-| 4 | `/generate-code` | Implements modules as production code with mandatory **L1 (unit, 60% coverage)** and **L2 (integration)** test gates. Fails the pipeline if gates are not met |
-| 5 | `/setup-env` | Validates `.env`, runs DB migrations, seeds reference data, verifies connectivity to every external service, and runs a runtime smoke test against real services. Makes the code actually runnable. |
-| 6 | `/deploy-module` | Generates deployment configuration and deploys a module to cloud infrastructure |
+| 2e | `/promote-poc` | *(Optional)* Merges POC architecture, analyzes code, implements all modules with test gates, produces `POC_PROMOTION_REPORT.md`. **If you use the POC path (2a-2e), skip Steps 3-5** -- `/promote-poc` creates module specs, implements code, and runs test gates |
+| 3 | `/plan-deployment` | *(Direct path only — skipped on the POC path, where `POC_PROMO_PREP.md` plays this role)* Generates `DEPLOYMENT.md`: a vendor-agnostic deployment & environment decision template (hosting/compute model, environments, identity wiring, data platform access, secrets/config, integration tenancy) with `<!-- REQUIRED -->` placeholders. You fill in the decisions; Steps 4-5 refuse to run until complete. Re-run after choosing a provider to derive and read-only-verify the resource naming plan |
+| 4 | `/generate-modules` | Extracts module specs from architecture into `architecture/modules/`, consuming the `DEPLOYMENT.md` decisions where they shape module design. Skipped if you used the POC path (Steps 2a-2e). Each module includes a Requirement Coverage table, user stories, acceptance criteria, and optional technical details (pseudo-code, schemas, API contracts) where they add clarity. Also generates the Module Registry and Integration Matrix in `architecture.md` |
+| 5 | `/generate-code` | The direct path's orchestrator. Bootstraps the dev environment declared in `DEPLOYMENT.md` (fully local / cloud / hybrid), implements modules with mandatory **L1 (unit, 60% coverage)** and **smoke** gates against that real environment, then gates on **L2 (integration)** and a blocking **E2E functional pass — headless-browser testing, mandatory for UI systems** — orchestrating its own fix loops. Ends with the app running in dev and `CONFIG_GUIDE.md` as the as-built record. Production deployment comes later via the future `/deploy-to-prod` |
+| 6 | `/setup-env` | *(POC path only — after `/promote-poc` and filling `.env` per `CONFIG_GUIDE.md`.)* Validates `.env`, runs DB migrations, seeds reference data, verifies connectivity to every external service, and runs a runtime smoke test against real services. On the direct path this step doesn't exist — `/generate-code` bootstraps and verifies the environment itself |
 
 #### `/generate-code` options
 
@@ -197,15 +222,6 @@ All commands are run as slash commands inside a Claude Code session.
 
 If zero or multiple switches are passed, the command errors out.
 
-#### `/deploy-module` options *(coming soon)*
-
-| Switch | Description |
-|--------|-------------|
-| `-module M1` | Module ID to deploy (required) |
-| `-provider aws\|azure\|gcp\|local` | Target cloud provider (default: `local`) |
-| `-environment dev\|staging\|prod` | Target environment (default: `dev`) |
-| `-dry-run` | Generate config only, skip actual deployment |
-
 ### Post-Promotion Changes
 
 Run on a feature git branch — the branch history is the technical changelog.
@@ -229,6 +245,27 @@ Run on a feature git branch — the branch history is the technical changelog.
 | `/update-tracking` | Update module status in `tracking/module-tracking.md` |
 
 Options: `-module M1` (specific module), `-status <status>` (one of `not_started`, `in_progress`, `l1_pass`, `blocked`, `complete`, `deployed`)
+
+## Agents
+
+Commands orchestrate specialized agents defined in `.claude/agents/` — agents are never invoked directly by the user. See the [Agent Map in DCF.md](DCF.md#agent-map) for exactly which command invokes which.
+
+| Agent | Role |
+|-------|------|
+| `coding-agent` | Implements module code (production and POC modes) |
+| `unit-test-generator-agent` | Generates L1 unit tests for a completed module |
+| `unit-tester-agent` | Runs L1 tests and enforces the 60% coverage gate |
+| `smoke-test-agent` | Verifies the app builds, starts, and responds — against the bootstrapped dev environment |
+| `e2e-test-agent` | End-to-end functional verification against the running dev environment: headless-browser journeys (mandatory for UI systems) or API/CLI journeys |
+| `l2-integration-agent` | Generates, runs, and fixes cross-module integration tests per the Integration Matrix |
+| `code-review-agent` | Optional code quality review (`/generate-code -review`) |
+| `traceability-validator-agent` | Validates REQ-ID coverage and the Sum Test across DCF documents |
+| `coherence-checker-agent` | Deep semantic-consistency analysis of merged architecture, modules, and PRD |
+| `deployment-gap-analyzer-agent` | Scans design documents for unanswered deployment & environment decisions (`/plan-deployment`) |
+| `poc-gap-analyzer-agent` | Scans POC code vs architecture for POC-to-production gaps (`/prepare-poc-promo`) |
+| `code-promotion-analyzer-agent` | Assigns each module its AS_IS / ADAPT / REWRITE promotion strategy (`/promote-poc`) |
+| `re-architect-agent` | Merges POC architecture into the main architecture and bootstraps production modules (`/promote-poc`) |
+| `tracking-update-agent` | Maintains module status in `tracking/module-tracking.md` |
 
 ## Project Structure
 
@@ -254,7 +291,7 @@ project-root/
 ├── tests/
 │   ├── unit/                  # L1 tests (60% coverage gate)
 │   ├── integration/           # L2 tests (blocking gate)
-│   └── e2e/                   # L3 tests (non-blocking)
+│   └── e2e/                   # E2E journeys (headless browser for UI; blocking gate in /generate-code)
 ├── poc/                       # POC output (self-contained, isolated)
 │   ├── architecture/          # POC-scoped architecture docs
 │   ├── src/                   # POC source (UI-focused, all mocks)
@@ -263,18 +300,21 @@ project-root/
 ├── infra/                     # Infrastructure configs
 ├── OVERVIEW.md                # Your requirements (input)
 ├── TECHSTACK.md               # Technology stack (input)
-└── PRD.md                     # Generated structured requirements
+├── PRD.md                     # Generated structured requirements
+├── DEPLOYMENT.md              # Deployment & environment decisions (direct path — /plan-deployment template, you complete it)
+└── CONFIG_GUIDE.md            # As-built configuration record + production walkthrough (generated)
 ```
 
 ## Test Gates
 
-DCF enforces three blocking test gates during code generation:
+DCF enforces blocking test gates during code generation:
 
 - **L1 (Unit)** -- 60% code coverage minimum per module
-- **Smoke Test** -- Application starts and basic functionality responds (applies to runnable modules; skipped for foundational modules like data models or utilities)
+- **Smoke Test** -- Application starts and basic functionality responds against the bootstrapped dev environment (applies to runnable modules; skipped for foundational modules like data models or utilities)
 - **L2 (Integration)** -- Cross-module validation per the Integration Matrix
+- **E2E Functional Gate** *(direct path)* -- Up to 10 user journeys driven against the running dev environment; **headless-browser testing is mandatory for UI systems**. UI modules also get a per-module headless render + interaction check after smoke
 
-Code generation will not proceed if these gates fail. L3 (E2E) tests are non-blocking.
+Code generation will not proceed if these gates fail. Human-authored e2e tests beyond the gate remain non-blocking.
 
 ## Key Documents
 
@@ -283,14 +323,15 @@ Code generation will not proceed if these gates fail. L3 (E2E) tests are non-blo
 | `OVERVIEW.md` | Freeform requirements (you write this) |
 | `TECHSTACK.md` | Technology choices (you write this) |
 | `PRD.md` | Structured requirements with REQ-IDs (generated) |
+| `DEPLOYMENT.md` | Deployment & environment decisions — vendor-agnostic template generated by `/plan-deployment`, completed by you (direct path only) |
 | `architecture/architecture.md` | High-level design with components and requirement traceability (generated) |
 | `architecture/data-model.md` | Logical data model with entities, relationships, and constraints (generated by `/generate-architecture`) |
 | `architecture/modules/*.md` | Module specs with pseudo-code and API contracts (generated) |
 | `tracking/module-tracking.md` | Module implementation status (auto-updated) |
 | `tracking/change-tracking.md` | Append-only PM log of post-promotion change requests (maintained by `/modify`) |
-| `tracking/env-setup.md` | Runtime environment setup log (generated by `/setup-env`) |
+| `tracking/env-setup.md` | Runtime environment setup log (generated by `/setup-env` on the POC path, or `/generate-code`'s environment bootstrap on the direct path) |
 | `DESIGNGUIDE.md` | UI/UX and design constraints (you write this, optional) |
-| `CONFIG_GUIDE.md` | Production configuration walkthrough — env vars, provider dashboards, verification (generated by `/promote-poc`) |
+| `CONFIG_GUIDE.md` | Production configuration walkthrough — env vars, provider dashboards, verification (generated by `/promote-poc` or `/generate-code`) |
 | `POC_PROMOTION_REPORT.md` | Promotion metadata + per-module summary + cross-cutting decisions (generated by `/promote-poc`) |
 | `DCF.md` | Technical reference -- command map, agent map, artifact map, authority chain, retrofit mode |
 | `POC_PROMOTION_ALGORITHM.md` | Phase-by-phase reference for the `/promote-poc` pipeline |

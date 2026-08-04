@@ -18,21 +18,23 @@ PRD.md                          (structured requirements with REQ-IDs)
 architecture/architecture.md    (high-level design with Implements: tags)
   + architecture/data-model.md  (logical data model)
      |
+     |  /plan-deployment  →  [human fills in]
+     v
+DEPLOYMENT.md                   (deployment & environment decisions — direct path)
+     |
      |  /generate-modules
      v
 architecture/modules/*.md       (low-level design per module)
      |
      |  /generate-code
      v
-src/                            (implementation with L1/L2 test gates)
+src/ + running dev environment  (env bootstrap per DEPLOYMENT.md's dev run mode,
+                                 L1/L2 gates, blocking headless-browser E2E gate,
+                                 `tracking/env-setup.md`)
      |
-     |  /setup-env
+     |  /deploy-to-prod [future]
      v
-configured runtime              (DB schema, reference data, verified connectivity, `tracking/env-setup.md`)
-     |
-     |  /deploy-module [placeholder]
-     v
-Deployed System
+Deployed System (production)
 ```
 
 ---
@@ -78,6 +80,45 @@ The POC loop validates requirements with stakeholders before committing to produ
 
 ---
 
+## Deployment Planning (Direct Path)
+
+The POC path resolves environment decisions through `/prepare-poc-promo` → `POC_PROMO_PREP.md` → `/promote-poc` (whose architecture merge may bake hosting detail into the merged design). The direct path has no POC to analyze — so `/plan-deployment` fills the same role from the design documents alone, **before** modules are extracted.
+
+```
+/generate-architecture
+        |
+        |  /plan-deployment           (direct path only; hard-fails if poc/src/ exists)
+        v
+DEPLOYMENT.md   ← template with <!-- REQUIRED: ... --> placeholders
+        |          categories: DEP (target & compute) / DATA / AUTH / SEC / INT / OPS
+        |          pre-filled where TECHSTACK.md / OVERVIEW.md already decide (source cited)
+        |          optional read-only platform verification (naming, regions, availability)
+        |
+        |  [human fills decisions — re-run to enrich resource plan once provider is chosen]
+        v
+/generate-modules → /generate-code       (both REFUSE to run with unfilled decisions)
+        |
+        v
+running dev environment                  (bootstrapped per the dev run mode — fully local /
+  + CONFIG_GUIDE.md as-built record        cloud / hybrid — and verified by the blocking
+  + config template                        headless-browser E2E gate)
+        |
+        v
+/deploy-to-prod [future]                 (production deployment)
+```
+
+**Division of responsibility** — why a separate document:
+
+| Document | Owns | Stays |
+|---|---|---|
+| `TECHSTACK.md` | *what technologies* (languages, frameworks, libraries) | portable |
+| `architecture/architecture.md` | *what the system is* | platform-agnostic (direct path) |
+| `DEPLOYMENT.md` | *where & how it runs* (provider, compute model, environments, identity wiring, data access, secrets/config, integration tenancy, delivery) | the single home for platform specifics |
+
+Module specs and generated code consume `DEPLOYMENT.md` decisions wherever they change design (identity source + dev-mode guard, data-access credential model, config module + canonical keys, process topology, build shape). DEV resources are verified-or-created by `/generate-code`'s environment bootstrap (dev-scoped, idempotent, via an authenticated provider CLI); production provisioning and deployment wait for the future `/deploy-to-prod`.
+
+---
+
 ## Command Map
 
 | Step | Command | Input | Output |
@@ -85,15 +126,16 @@ The POC loop validates requirements with stakeholders before committing to produ
 | 0 | manual | -- | `OVERVIEW.md` |
 | 1 | `/generate-prd` | `OVERVIEW.md` | `PRD.md` |
 | 2 | `/generate-architecture` | `PRD.md` | `architecture/architecture.md` + `architecture/data-model.md` |
-| 3 | `/generate-modules` | `architecture.md` + `PRD.md` | `architecture/modules/*.md` |
-| 4 | `/generate-code` | module specs | `src/` + tests |
-| 5 | `/setup-env` | `.env` + `CONFIG_GUIDE.md` + architecture | DB schema + reference data + verified connectivity + `tracking/env-setup.md` |
-| 6 | `/deploy-module` | tested + configured modules | deployed system *(placeholder)* |
+| 3 | `/plan-deployment` | architecture + data model + `TECHSTACK.md` | `DEPLOYMENT.md` (decision template; human completes — direct path only) |
+| 4 | `/generate-modules` | `architecture.md` + `PRD.md` + `DEPLOYMENT.md` | `architecture/modules/*.md` |
+| 5 | `/generate-code` | module specs + `DEPLOYMENT.md` | `src/` + tests + **running dev environment** (bootstrapped, E2E-verified) + `CONFIG_GUIDE.md` + config template |
+| 6 | `/deploy-to-prod` *(future)* | `DEPLOYMENT.md` + verified modules | production deployment *(not yet implemented)* |
 | -- | `/generate-poc` | `PRD.md` + architecture | `poc/` |
 | -- | `/modify-poc` | stakeholder feedback | updated `poc/` + changelog |
 | -- | `/sync-prd` | `poc/poc-tracking/CHANGELOG.md` | updated `PRD.md` |
 | -- | `/prepare-poc-promo` | POC + main architecture + data model | `poc/temp/poc_promotion/POC_PROMO_PREP.md` (gap template for human decisions) |
 | -- | `/promote-poc` | POC + main architecture + completed prep | merged architecture + modules + production code + `CONFIG_GUIDE.md` + `POC_PROMOTION_REPORT.md` ([algorithm](POC_PROMOTION_ALGORITHM.md)) |
+| -- | `/setup-env` *(POC path)* | `.env` + `CONFIG_GUIDE.md` + architecture | DB schema + reference data + verified connectivity + `tracking/env-setup.md` |
 | -- | `/modify` | `-change`/`-new`/`-fix` request + post-promotion `src/` | updated `PRD.md` + `architecture/` + `src/` + new `tracking/change-tracking.md` entry (post-promotion change loop) |
 | -- | `/update-tracking` | module status | `tracking/module-tracking.md` |
 
@@ -110,6 +152,9 @@ Agents are invoked by commands — never called directly by the user.
 /generate-architecture
   '-- traceability-validator-agent  REQ-ID coverage validation
 
+/plan-deployment
+  '-- deployment-gap-analyzer-agent  unanswered environment-decision scan
+
 /generate-modules
   '-- traceability-validator-agent  REQ-ID coverage + sum test validation
 
@@ -117,7 +162,8 @@ Agents are invoked by commands — never called directly by the user.
   |-- coding-agent              writes implementation code
   |-- unit-test-generator-agent generates L1 unit tests
   |-- unit-tester-agent         runs and fixes L1 tests
-  |-- smoke-test-agent          quick build/start validation
+  |-- smoke-test-agent          build/start validation vs the bootstrapped dev env
+  |-- e2e-test-agent            headless-browser E2E verification (module + full scope)
   |-- l2-integration-agent      cross-module integration tests
   |-- code-review-agent         optional quality review
   '-- tracking-update-agent     updates module-tracking.md
@@ -145,7 +191,7 @@ Agents are invoked by commands — never called directly by the user.
 /prepare-poc-promo
   '-- poc-gap-analyzer-agent         scans POC vs architecture for gaps
 
-/setup-env
+/setup-env (POC path)
   '-- smoke-test-agent               runtime smoke test against real services
 
 /modify
@@ -155,9 +201,6 @@ Agents are invoked by commands — never called directly by the user.
   |-- smoke-test-agent          verifies app still starts and routes respond
   |-- l2-integration-agent      cross-module integration (when change spans modules)
   '-- tracking-update-agent     updates module-tracking.md + change-tracking.md
-
-/deploy-module [placeholder]
-  '-- deploy-config-agent       generates IaC configs (placeholder)
 ```
 
 ---
@@ -168,7 +211,8 @@ Agents are invoked by commands — never called directly by the user.
 project-root/
   OVERVIEW.md .................. freeform requirements (manual)
   PRD.md ....................... structured requirements with REQ-IDs
-  CONFIG_GUIDE.md .............. production configuration walkthrough (from /promote-poc)
+  DEPLOYMENT.md ................ deployment & environment decisions (template from /plan-deployment, human-completed — direct path)
+  CONFIG_GUIDE.md .............. production configuration walkthrough (from /promote-poc or /generate-code)
   POC_PROMOTION_REPORT.md ..... promotion metadata + summary (from /promote-poc)
   TECHSTACK.md ................. technology choices
   DESIGNGUIDE.md ............... UI/UX and design constraints
@@ -179,7 +223,7 @@ project-root/
       module-{N}-{name}.md ..... low-level design per module
   tracking/
     module-tracking.md ......... module status (not_started → complete → deployed)
-    env-setup.md ............... runtime-env setup log (from /setup-env)
+    env-setup.md ............... runtime-env setup log (from /setup-env on the POC path, or /generate-code's env bootstrap)
   poc/
     architecture/
       architecture.md .......... POC-scoped architecture
@@ -262,7 +306,7 @@ After all per-module implementation completes, `/promote-poc` runs a **cross-cut
   produces POC_PROMOTION_REPORT.md
 ```
 
-`/generate-code` implements from module specs alone (normal mode, non-POC path). For POC-to-production promotion, use `/promote-poc`.
+`/generate-code` (normal mode, direct path) bootstraps the dev environment per `DEPLOYMENT.md`'s dev run mode (fully local / cloud / hybrid), implements from module specs + `DEPLOYMENT.md`, gates on headless-browser E2E verification, and finalizes `CONFIG_GUIDE.md` as the as-built record. For POC-to-production promotion, use `/promote-poc`.
 
 ---
 
@@ -308,17 +352,25 @@ Module implementation
 L1: Unit Tests (60% coverage gate)
      |  FAIL --> fix loop (max attempts)
      v
-Smoke Test (build + start)
+Smoke Test (build + start vs the bootstrapped dev environment)
+     |  FAIL --> fix loop
+     v
+Module E2E (headless browser — UI modules, direct path)
      |  FAIL --> fix loop
      v
 L2: Integration Tests (cross-module, after all modules)
      |  FAIL --> fix loop
      v
-Done
+E2E Functional Gate (whole app vs the running dev environment;
+headless browser MANDATORY for UI systems — direct path)
+     |  FAIL --> fix loop (orchestrated by /generate-code)
+     v
+Done — dev environment running
 ```
 
-- L1 and L2 are **blocking** — module cannot proceed without passing
-- L3 (e2e) is **non-blocking** — runs but does not gate
+- L1, L2, and the E2E functional gate are **blocking** — the pipeline cannot complete without passing
+- Headless-browser testing is **mandatory for UI systems** on the direct path; non-UI systems run API/CLI journeys instead
+- Additional human-authored e2e tests beyond the gate remain non-blocking
 
 ---
 
