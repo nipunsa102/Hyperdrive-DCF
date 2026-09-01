@@ -1,6 +1,6 @@
 ---
 description: Generate POC-to-production gap analysis template for human decision input
-model: claude-fable-5
+model: fable
 ---
 
 ## Purpose
@@ -63,7 +63,9 @@ Identify gaps in the following categories (and ONLY these categories):
    (which real provider, sandbox availability)
 5. Deployment Target (DEP) — hosting platform, runtime, region, environment count
 
-OUT OF SCOPE: observability stack, error-handling/retry defaults, performance targets.
+OUT OF SCOPE for gap questions: observability stack choices (documented at promotion in
+CONFIG_GUIDE.md only when the promoted code already uses such a service),
+error-handling/retry defaults, performance targets.
 
 For each gap, provide:
 - Gap ID (e.g., DP-1, AUTH-1, SEC-1, INT-1, DEP-1)

@@ -1,6 +1,6 @@
 ---
 description: Update Tracking
-model: claude-opus-4-8
+model: opus
 ---
 
 **Switches**: `-module`, `-status`
@@ -26,7 +26,7 @@ If any prerequisite fails, ERROR with a clear message and stop.
 
 1. **Read `tracking/module-tracking.md`** and parse:
    - The Summary block (total, counts per status)
-   - The Module Status table (per-module rows: ID, Name, Status, L1 Coverage, L2 Status, Dependencies, Notes)
+   - The Module Status table (per-module rows: Module, Name, Status, L1 Coverage, L2 Status, Dependencies, Notes)
    - The Blockers section (if present)
    - The History section (append-only log)
 
@@ -105,6 +105,7 @@ None. This command is a file-update utility and does not invoke any agents.
 - In Progress: 1
 - Blocked: 0
 - Not Started: 1
+- Deployed: 0
 
 ## Module Status
 

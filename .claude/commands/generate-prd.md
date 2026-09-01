@@ -1,6 +1,6 @@
 ---
 description: Generate a structured Product Requirements Document from OVERVIEW.md with hierarchical REQ-IDs
-model: claude-fable-5
+model: fable
 ---
 
 ## Purpose
@@ -94,7 +94,7 @@ Create `PRD.md` at **ROOT level** (alongside OVERVIEW.md) with this structure:
 
 ### Phase 3: Validation
 
-**Invoke traceability-validator-agent** to verify:
+**Invoke traceability-validator-agent** with `Validation scope: prd-only` to verify:
 - All OVERVIEW.md sections have corresponding REQ-IDs
 - No orphaned content (requirements mentioned but not captured)
 - REQ-IDs follow naming convention

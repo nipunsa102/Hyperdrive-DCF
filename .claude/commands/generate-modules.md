@@ -1,6 +1,6 @@
 ---
 description: Extract modules from architecture with requirement traceability
-model: claude-fable-5
+model: fable
 ---
 
 ## Purpose
@@ -39,7 +39,7 @@ Extract modules from architecture.md components and create module specifications
 
 3. **Read DEPLOYMENT.md** (deployment & environment decisions from `/plan-deployment`)
    - Verify no unfilled `<!-- REQUIRED` markers remain (see Prerequisites)
-   - Extract the decisions that shape module design: identity integration model and local-dev identity strategy (AUTH-*), data platform and access model (DATA-*), deployable topology and compute model (DEP-*), configuration mechanism and canonical key names (SEC-* + Configuration Key Plan), integration tenancy (INT-*)
+   - Extract the decisions that shape module design: identity integration model and local-dev identity strategy (AUTH-*), data platform and access model (DATA-*), deployable topology and compute model (DEP-*), configuration mechanism and canonical key names (SEC-* + Configuration Key Plan), integration tenancy (INT-*) (a decision family absent from DEPLOYMENT.md means no decisions of that kind were required — continue)
    - Module specs MUST reflect these decisions wherever they change a module's design (e.g., an auth module specifies decoding a platform-injected identity vs. an app-level sign-in flow, plus the local dev-mode identity and its deployed-environment guard; an ingestion module specifies CLI vs. scheduled-job execution shape; a foundation module specifies the config module and data-access credential model)
    - Module specs describe design, not provisioning — resource-creation steps stay in `DEPLOYMENT.md`'s Resource & Naming Plan
    - `architecture/architecture.md` stays platform-agnostic — do NOT copy platform specifics into it (the Module Registry and Integration Matrix added in Phase 3 remain platform-neutral)
@@ -96,6 +96,14 @@ If `architecture/data-model.md` exists, reference the specific entities this mod
 ## Acceptance Criteria
 - [ ] Criterion 1
 - [ ] Criterion 2
+
+## Decisions and Their Evidence
+(required whenever the module owns a mechanism: pipeline/algorithm, multi-actor flow,
+budgets/limits, failure/recovery — omit for modules that own no mechanism)
+
+| Decision | Why | Evidence | REQ/CT ref |
+|----------|-----|----------|------------|
+| ... | ... | ... | ... |
 ```
 
 **Section-Level Requirement Mapping:**
@@ -156,9 +164,16 @@ The main workspace showing project tiles...
 | **State Diagram** | Components with multiple states and transitions | Stateless operations | Order workflow (pending→processing→shipped→delivered) |
 | **API Contract** | Module exposes external interface | Internal-only module | REST endpoints consumed by frontend |
 
-**Important:** These are OPTIONAL - only include when they add clarity. Simple modules need none of these.
+**Important:** The OPTIONAL label applies to these *diagram* guidelines only — include a diagram type only when it adds clarity, and simple modules need none of them. It does NOT apply to the *Decisions and Their Evidence* table, which is mandatory whenever the module owns a mechanism (see below).
 
 ### Detailed Diagram Guidelines
+
+Module specs are the **implementation-contract altitude** of `.claude/rules/architecture-doc-standard.md`:
+when a module owns a mechanism (a pipeline or algorithm, a multi-actor flow, budgets/limits,
+failure/recovery semantics), its spec MUST carry the contract — pseudocode, reply/data contracts,
+state machines, and a *Decisions and Their Evidence* table (`| Decision | Why | Evidence | REQ/CT ref |`)
+for every non-obvious choice. The understanding-oriented picture of the same mechanism
+lives in `architecture/architecture.md`; don't duplicate it here — refine it to implementation depth.
 
 **Sequence Diagrams:**
 
@@ -320,7 +335,7 @@ Add to `architecture/architecture.md`:
 
 ### Phase 4: Traceability Validation
 
-**Invoke traceability-validator-agent** to verify:
+**Invoke traceability-validator-agent** with `Validation scope: full` to verify:
 - Every REQ-ID in PRD.md appears in at least one module's Requirement Coverage table
 - No invalid REQ-IDs (references that don't exist in PRD.md)
 - Every module has a Requirement Coverage section
@@ -585,6 +600,9 @@ Sum(Module 1 + Module 2 + ... + Module N) == architecture.md
 22. [ ] DEPLOYMENT.md fully filled (no `<!-- REQUIRED` markers) before generation started?
 23. [ ] Module specs reflect DEPLOYMENT.md decisions wherever they change module design (identity source + dev-mode guard, data access model, config module + canonical keys, job execution shape)?
 24. [ ] No platform specifics copied into architecture.md (stays platform-agnostic)?
+
+**Decision-Evidence Checks:**
+25. [ ] Every module that owns a mechanism (pipeline/algorithm, multi-actor flow, budgets/limits, failure/recovery) includes a *Decisions and Their Evidence* table (`| Decision | Why | Evidence | REQ/CT ref |`)?
 
 **All checks must PASS before /generate-modules completes.**
 

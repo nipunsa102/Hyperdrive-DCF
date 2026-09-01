@@ -23,6 +23,8 @@ After a module completes L1, run smoke tests based on the module's type. The mod
 ### Step 1: Determine What's Testable
 
 1. Read the module spec from `architecture/modules/module-{N}-{name}.md`
+   - POC mode (Module ID `POC-M{N}`): the spec lives at `poc/architecture/modules/module-{N}-{name}.md` and the app runs from `poc/` (see .claude/rules/poc-mode.md).
+   - Scope: app (Module ID `app`): no module spec — verify the whole application (start + routes + functional content), report `"module": "app"`.
 2. Check if the module has backend components (API endpoints, server routes) → Backend smoke test
 3. Check if the module has frontend components (pages, screens, rendered UI) → Frontend smoke test
 4. If the module is foundational (no runnable endpoints, no rendered UI — e.g., shared types, utility libraries, data layers) → Skip smoke test
@@ -71,7 +73,7 @@ FRONTEND_STATUS=$?
 
 ### Step 3b: Functional Verification
 
-**Skip this step when:** the module is foundational (no UI/API routes), or `-skip-smoke` flag is set.
+**Skip this step when:** the module is foundational (no UI/API routes), or the invoking context requests a structural-only run (e.g. -skip-smoke).
 
 After confirming the app starts (Step 3), verify it serves meaningful content — not just an empty shell.
 
@@ -101,7 +103,7 @@ kill $APP_PID 2>/dev/null
 ```json
 {
   "status": "PASS|FAIL|FUNC_FAIL",
-  "module": "M{N}",
+  "module": "M{N}|POC-M{N}|app",
   "checks": {
     "backend_starts": true|false|"skipped",
     "backend_responds": true|false|"skipped",
@@ -137,6 +139,7 @@ kill $APP_PID 2>/dev/null
 ## BLOCKING BEHAVIOR
 
 - **PASS**: Proceed to next module
+- **FUNC_FAIL** — structural pass, functional fail (empty pages / missing data): NON-blocking; invoking context runs a targeted data fix (max 2 attempts) — see .claude/rules/test-gates.md
 - **FAIL**: Stop pipeline, report error, module marked BLOCKED
 
 ## TIMEOUT LIMITS
@@ -147,7 +150,7 @@ kill $APP_PID 2>/dev/null
 | Backend health check | 5 seconds |
 | Frontend startup | 15 seconds |
 | Frontend render check | 5 seconds |
-| **Total smoke test** | **30 seconds** |
+| **Total smoke test** | **35 seconds** |
 
 ## FAILURE DIAGNOSIS
 
@@ -181,7 +184,7 @@ When smoke test fails, provide actionable diagnostics:
 ## CORE REQUIREMENTS
 
 - **MUST** verify application actually runs
-- **MUST** complete within 30 seconds
+- **MUST** complete within 35 seconds
 - **MUST** clean up all started processes
 - **MUST** provide clear error messages on failure
 - **MUST** be deterministic (same result each run)
@@ -199,7 +202,7 @@ L1 Unit Tests Pass (coverage target met)
     │
     ├── PASS → Invoking context continues to next module
     │
-    └── FAIL → Return BLOCKED status to invoking context
+    └── FAIL → return FAIL (invoking context marks the module Blocked)
            │
            └── Fix must be applied before proceeding
 ```

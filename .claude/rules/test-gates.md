@@ -9,7 +9,7 @@ paths:
 All code changes must pass test gates before being considered complete.
 
 ## L1 Gate (Unit Tests)
-- **Minimum 60% coverage** per module (default, configurable)
+- **Minimum 60% coverage** per module (default — see Coverage Parameterization below)
 - **Maximum 5 tests** per module
 - Run with the project's test runner (e.g., `npx vitest`, `pytest`, `go test`)
 - Tests must be in `{name}.test.{ext}` format (e.g., `.ts`, `.py`, `.go`)
@@ -81,5 +81,6 @@ Tests and test-generated reports live at predictable paths so that downstream co
 | E2E journey tests (blocking gate in `/generate-code`, direct path) | `tests/e2e/**` | `e2e-test-agent` (full scope); humans may add more |
 | E2E run reports (screenshots, failure diagnostics) | `tests/reports/e2e/` | `e2e-test-agent` |
 | Test run reports (coverage, pass/fail JSON) | `tests/reports/unit/{module_name}/`, `tests/reports/integration/` | Test runner / test gate step |
+| L2 coverage matrix | `tests/reports/integration/coverage_matrix.md` | l2-integration-agent |
 
 The `tests/reports/` subtree is ephemeral and should be gitignored. The `tests/unit/` and `tests/integration/` subtrees are part of the committed codebase.

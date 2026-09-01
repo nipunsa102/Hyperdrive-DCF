@@ -19,7 +19,7 @@ Common patterns by language/framework — adapt to your stack.
 | Hook (if applicable) | `use{Name}.{ext}` | `useAuth.ts` |
 | Stylesheet | `kebab-case.css` | `globals.css` |
 | Test (Unit) | `{name}.test.{ext}` | `user-service.test.ts`, `test_user_service.py` |
-| Test (Integration) | `{name}.integration.test.{ext}` | `auth-flow.integration.test.ts` |
+| Test (Integration) | `integration.test.{ext}` | `tests/integration/integration.test.ts` (single file per project — see test-gates.md) |
 | Config | `{tool}.config.{ext}` | `vite.config.ts`, `pytest.ini` |
 | Docs | `kebab-case.md` | `naming-conventions.md` |
 

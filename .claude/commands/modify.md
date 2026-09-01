@@ -1,6 +1,6 @@
 ---
 description: Implement stakeholder-requested changes to promoted production code with full tracking and test gates
-model: claude-fable-5
+model: fable
 ---
 
 **Switches**: `-change`, `-new`, `-fix`
@@ -14,7 +14,7 @@ model: claude-fable-5
 
 ## Purpose
 
-Implements stakeholder-requested changes to promoted production code and tracks all modifications. After a POC has been promoted (via `/promote-poc`) and the codebase is under active development, the product manager captures stakeholder feedback and uses this command to (1) update `PRD.md`, `architecture/`, and `src/` code, (2) run all test gates, and (3) maintain a single tracking log for traceability.
+Implements stakeholder-requested changes to production code and tracks all modifications. After the codebase has been implemented — via `/promote-poc` (POC path) or a completed `/generate-code` run (direct path) — and is under active development, the product manager captures stakeholder feedback and uses this command to (1) update `PRD.md`, `architecture/`, and `src/` code, (2) run all test gates, and (3) maintain a single tracking log for traceability.
 
 **Three modes:**
 - **`-change`**: Modifies existing production functionality (e.g., "change the stats card order", "show vocabulary categories on flick cards")
@@ -37,13 +37,13 @@ Implements stakeholder-requested changes to promoted production code and tracks 
 
 ## Prerequisites
 
-1. `/promote-poc` must have been run at least once (i.e., `src/` contains promoted code and `tracking/module-tracking.md` exists)
+1. `/promote-poc` OR a completed `/generate-code` run must have executed (`src/` contains implemented code and `tracking/module-tracking.md` exists with `Complete` modules)
 2. `PRD.md` must exist at project root
 3. `architecture/architecture.md` and `architecture/modules/` must exist with at least one module spec
 
 If any prerequisite fails, ERROR with a clear message and stop:
 
-- Missing `tracking/module-tracking.md` → `ERROR: No module tracking found. Run /promote-poc first — /modify is for post-promotion code changes.`
+- Missing `tracking/module-tracking.md` → `ERROR: No module tracking found. Run /promote-poc (POC path) or /generate-code (direct path) first — /modify is for changes to implemented production code.`
 - Missing `PRD.md` → `ERROR: PRD.md not found at project root. Run /generate-prd first.`
 - Missing `architecture/architecture.md` → `ERROR: architecture/architecture.md not found. Run /generate-architecture first.`
 
@@ -103,6 +103,8 @@ This command maintains one tracking file at `tracking/change-tracking.md`:
    - All sections and REQ-ID tables
    - Identify candidate REQ-IDs affected by this change
    - For `-new`, also note the section naming conventions so a new REQ-ID can be chosen correctly
+
+5. **Read `DEPLOYMENT.md` if present** (direct path) — new/updated module specs must reflect its DEP/DATA/AUTH/SEC/INT/OPS decisions
 
 ### Phase 2: Impact Analysis
 
@@ -191,15 +193,35 @@ This command maintains one tracking file at `tracking/change-tracking.md`:
 
    e. **INVOKE `smoke-test-agent`** (blocking unless the affected module is foundational with no runnable entry point)
       - **PASS:** proceed
-      - **FUNC_FAIL:** INVOKE `coding-agent` to fix dev-mock data (max 2 attempts), re-run smoke
+      - **FUNC_FAIL:** INVOKE `coding-agent` to fix the seed/reference data (or the seeding code) (max 2 attempts), re-run smoke
       - **FAIL:** mark module `Blocked`, INVOKE `tracking-update-agent`, STOP and report
 
    f. **INVOKE `tracking-update-agent`** with `module_l1_pass` (coverage, test count) after L1+smoke both pass
 
 6. **L2 Integration Gate** — INVOKE `l2-integration-agent` **only if** the change touches more than one module OR the Integration Matrix was modified in Phase 3 step 2
    - Skip for single-module `-change` or `-fix` where no integration edges were affected
-   - **SUCCESS:** INVOKE `tracking-update-agent` with `l2_pass` → affected modules → `Complete`
+   - **SUCCESS:** INVOKE `tracking-update-agent` with `l2_pass` carrying an explicit `affected_modules` list — only the listed modules flip from `L1 Pass` to `Complete`
    - **BLOCKED:** INVOKE `tracking-update-agent` with `l2_fail` → affected modules → `Blocked`, STOP and report
+
+7. **Architecture alignment gate** (ALL modes — `-fix` included)
+   - **MUST INVOKE `architecture-alignment-agent`** after all test gates pass, with:
+
+   ```
+   ARCHITECTURE ALIGNMENT — POST-CHANGE RECONCILIATION:
+   - Scope: main (edit only architecture/**)
+   - Change refs: main CT-{NNN} — {mode} — {raw request text}
+   - Changed files: {list of files created/modified in this change}
+   - Deviation Reports: {coding-agent Deviation Report items — departures from the spec AND mechanisms the code now has that the docs do not describe; or "none"}
+   - Standard: .claude/rules/architecture-doc-standard.md
+   ```
+
+   - Rationale: a `-fix` that changes call topology, algorithms, limits, or failure semantics is a
+     design change wearing a fix's clothes — the up-front SKIP rules above cover authoring only;
+     this gate is what keeps `architecture/` a statement of present truth
+   - The agent classifies (no-impact → cheap exit; impact → reconciles both altitudes per the
+     standard), fixes pre-existing drift it trips over, and returns a report
+   - If it flags a code-vs-approved-design discrepancy: surface it to the user — never silently
+     accept either side
 
 ### Phase 4: Tracking Updates
 
@@ -222,7 +244,7 @@ START → Read switch (exactly one of -change, -new, -fix REQUIRED)
           ↓
    Validate: switch provided? Only one? → ERROR if not
           ↓
-   Validate prerequisites (promote-poc run? PRD.md? architecture?) → ERROR if missing
+   Validate prerequisites (promote-poc or generate-code run? PRD.md? architecture?) → ERROR if missing
           ↓
    Set mode: CHANGE, NEW, or FIX
           ↓
@@ -233,6 +255,7 @@ START → Read switch (exactly one of -change, -new, -fix REQUIRED)
    │  3. Read architecture/architecture.md        │
    │  4. Read architecture/modules/* (affected)   │
    │  5. Read PRD.md — parse full structure       │
+   │  6. Read DEPLOYMENT.md if present (direct)   │
    └──────────────────────────────────────────────┘
           ↓
    Phase 2: Impact Analysis
@@ -264,6 +287,8 @@ START → Read switch (exactly one of -change, -new, -fix REQUIRED)
    │      e. tracking-update-agent (module_l1_pass│
    │  6. l2-integration-agent (if cross-module)   │
    │      └─ tracking-update-agent (l2_pass|fail) │
+   │  7. architecture-alignment-agent (ALL modes) │
+   │      └─ docs reconciled to code reality      │
    └──────────────────────────────────────────────┘
           ↓
    Phase 4: Tracking Update
@@ -299,7 +324,7 @@ Files NEVER touched:
 
 ## CRITICAL CONSTRAINTS
 
-- **POST-PROMOTION ONLY** — requires `/promote-poc` to have run; refuses to operate on a pre-promotion project
+- **POST-IMPLEMENTATION ONLY** — `/promote-poc` OR a completed `/generate-code` run must have executed (`tracking/module-tracking.md` exists with `Complete` modules); refuses to operate before the code exists
 - **Never reads or writes `poc/`** — POC is historical after promotion
 - **PRD updates are in place** — no deprecation file is written. Git branch history is the backup (this command is expected to run on a feature branch)
 - **No root `CHANGELOG.md`** — the git branch is the technical changelog; `tracking/change-tracking.md` is only the PM log
@@ -320,6 +345,7 @@ Files NEVER touched:
 | `smoke-test-agent` | Verify app still starts and routes respond | Phase 3 — after L1 passes |
 | `l2-integration-agent` | Cross-module integration gate | Phase 3 — only when change spans modules |
 | `tracking-update-agent` | Update `tracking/module-tracking.md` | Phase 3 — after L1+smoke, and after L2 |
+| `architecture-alignment-agent` | Reconcile `architecture/` docs with code reality (per `.claude/rules/architecture-doc-standard.md`) | Phase 3, step 7 — after all gates, ALL modes incl. `-fix` |
 
 **Agents NOT used:**
 - `re-architect-agent` — the command edits architecture and specs directly; no POC-to-main merge is happening
@@ -339,6 +365,7 @@ Files NEVER touched:
 - **MUST** run L1 gate for every touched module (60% coverage, max 5 tests)
 - **MUST** run smoke-test-agent after L1 passes for every runnable module
 - **MUST** run l2-integration-agent when the change spans more than one module or alters the Integration Matrix
+- **MUST** INVOKE `architecture-alignment-agent` after all gates pass, in ALL modes — `-fix` included
 - **MUST** INVOKE `tracking-update-agent` rather than writing `tracking/module-tracking.md` directly
 - **MUST** append a CT-XXX entry to `tracking/change-tracking.md` only after all gates pass
 - **MUST** investigate and locate bugs from natural language descriptions when `-fix` is used — no REQ-IDs, module numbers, or file paths required from the user
@@ -348,7 +375,7 @@ Files NEVER touched:
 ## Success Criteria
 
 - [ ] Exactly one switch provided and validated
-- [ ] Prerequisites verified (post-promotion state)
+- [ ] Prerequisites verified (post-implementation state — via /promote-poc or /generate-code)
 - [ ] `PRD.md` updated in place with CT-XXX annotations (for `-change`, `-new`, and `-fix` when AC is refined)
 - [ ] PRD integrity verified post-edit — unique REQ-IDs, no renumbering, no contradictions, unrelated content untouched
 - [ ] `architecture/architecture.md` updated (for `-new`, and `-change` when component boundaries shift)
@@ -357,6 +384,7 @@ Files NEVER touched:
 - [ ] L1 passes for every touched module at the 60% coverage target
 - [ ] Smoke test passes for every runnable module
 - [ ] L2 integration passes when the change crossed module boundaries
+- [ ] Architecture alignment gate ran and returned its verdict (no-impact | reconciled | reconciled-with-flags; flags surfaced to the user)
 - [ ] `tracking/module-tracking.md` updated via `tracking-update-agent` for every module
 - [ ] `tracking/change-tracking.md` has a new CT-XXX entry with the PM's raw request
 - [ ] PRD `Document Info → Version` incremented and `Last Updated` set to today

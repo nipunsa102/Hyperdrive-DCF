@@ -47,8 +47,8 @@ When complete, you will have:
 - **MUST** enforce {COVERAGE_TARGET} minimum code coverage
 - **MUST** follow the Design Cascading Framework (DCF) in `CLAUDE.md`
 - **MUST** fail if any test doesn't pass
-- Execute tests from `/tests/unit/{module_name}/`
-- Generate reports in `/tests/reports/unit/{module_name}/report.json`
+- Execute tests from `tests/unit/{module_name}/`
+- Generate the L1 report at `tests/reports/unit/{module_name}/report.json`
 - Use the project's configured test runner with coverage measurement
 
 ## Test Execution Process
@@ -73,24 +73,29 @@ npx vitest run tests/unit/{module_name}/ \
   --coverage.reporter=json \
   --coverage.reporter=text \
   --reporter=json \
-  --outputFile=tests/reports/unit/{module_name}/results.json
+  --outputFile=tests/reports/unit/{module_name}/runner-results.json
 ```
 
 **Python/Pytest:**
 ```bash
 pytest tests/unit/{module_name}/ \
-  --cov=src/modules/{module_name} \
-  --cov-report=json:tests/reports/unit/{module_name}/coverage.json \
+  --cov=src/{module_location} \
+  --cov-report=json:tests/reports/unit/{module_name}/runner-coverage.json \
   -v --tb=short
 ```
 
+> Coverage targets the module's source location from its spec (`src/{module_location}/`). Runner-native outputs (results/coverage JSON) are inputs to the L1 report — they are not the artifact itself.
+
 ### Step 3: Analyze Results
-- Parse coverage.json for percentage
+- Parse the runner-native coverage JSON for percentage
 - Count passed/failed tests
 - Identify failing test cases
 - Check for import errors
 
 ### Step 4: Generate Report
+
+Write the L1 report artifact to `tests/reports/unit/{module_name}/report.json`:
+
 ```json
 {
   "status": "PASS|FAIL",

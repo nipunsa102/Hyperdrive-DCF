@@ -1,6 +1,6 @@
 ---
 description: Full POC promotion — merges architecture, implements production code, runs test gates, and produces a configuration guide
-model: claude-fable-5
+model: fable
 ---
 
 ## Purpose
@@ -21,8 +21,9 @@ One-stop command that promotes a validated POC to production. Merges POC archite
   - `ADAPT` → `coding-agent` in ADAPT mode (preserve POC structure, swap mocks, fill gaps)
   - `REWRITE` → `coding-agent` in REWRITE mode (POC as reference only, fresh from spec)
 - Runs all test gates: L1 unit tests, smoke tests, L2 integration tests
-- **Applies cross-cutting decisions from `POC_PROMO_PREP.md` uniformly** across all src/ files (INT-2 error messages, AUTH-2 string references, etc.)
-- Produces `POC_PROMOTION_REPORT.md` with config guide and promotion summary
+- **Applies cross-cutting decisions from `POC_PROMO_PREP.md` uniformly** across all src/ files (e.g., an INT-* integration decision's error-message mandate, an AUTH-* decision's string references)
+- Runs the architecture alignment gate at the end of Phase 4 — reconciles the merged `architecture/` docs with the code actually promoted (invoke `architecture-alignment-agent`)
+- Produces `CONFIG_GUIDE.md`, configuration template file(s), and `POC_PROMOTION_REPORT.md`
 - Maintains `poc/temp/poc_promotion/promotion.md` as a running log for resume capability
 
 **What this command does NOT do:**
@@ -39,6 +40,7 @@ One-stop command that promotes a validated POC to production. Merges POC archite
 5. `architecture/architecture.md` must exist (run `/generate-architecture` first if missing)
 6. `architecture/data-model.md` must exist (run `/generate-architecture` first if missing)
 7. `architecture/modules/` must be empty. If it contains any `.md` files, ERROR: `"architecture/modules/ is non-empty (N module files). The /generate-poc gate should have prevented this state. Either you bypassed the gate manually, or modules were added after /generate-poc ran. Remove architecture/modules/*.md and rerun, or abandon the POC path."` This is a safety net — the `/generate-poc` gate is the primary defense.
+8. `TECHSTACK.md` must exist (Phase 5 synthesizes from it)
 
 If any prerequisite fails, ERROR with a clear message and stop.
 
@@ -66,7 +68,7 @@ If any prerequisite fails, ERROR with a clear message and stop.
 
 4. **Detect POC Scope** — classify as `frontend-only`, `backend-only`, `full-stack`, or `undetermined` by scanning POC file extensions, frameworks, and mock directories.
 
-5. **Classify POC Maturity (NEW):**
+5. **Classify POC Maturity:**
 
    The goal is to classify the POC as `mock-heavy`, `hybrid`, or `production-wired` based on evidence. Use whichever of the following signal sources apply to this project's stack — the signals listed are **examples, non-exhaustive**. Adapt the search patterns to the project's actual language, package manager, and config conventions.
 
@@ -93,7 +95,7 @@ If any prerequisite fails, ERROR with a clear message and stop.
 6. **Resume detection:**
    - Check if `poc/temp/poc_promotion/promotion.md` exists from a previous run
    - If yes: read it to determine which phases are already complete
-   - **Resume-integrity check (NEW):** before trusting the phase checklist, verify that the on-disk outputs of completed phases still exist. Run the following cross-checks:
+   - **Resume-integrity check:** before trusting the phase checklist, verify that the on-disk outputs of completed phases still exist. Run the following cross-checks:
      - If Phase 2 is `[x]` but `architecture/modules/` is empty → promotion log is stale
      - If Phase 3 is `[x]` but `tracking/module-tracking.md` is missing → promotion log is stale
      - If Phase 4 is `[x]` but `src/` is empty or missing → promotion log is stale
@@ -163,6 +165,15 @@ Scope-specific merge strategy:
 [If undetermined]: Preserve all main architecture depth, only add clear POC contributions
 
 Note: This is a bootstrap merge. architecture/modules/ is empty by contract.
+
+Decision documentation (per .claude/rules/architecture-doc-standard.md): the POC's architecture
+carries mechanism pictures (box/sequence diagrams, limits tables) and module-level decision
+documentation (pseudocode, "Decisions and their evidence" tables, state machines) for designs
+born during POC work. Merge these MEANINGFULLY into the main docs — diagrams, evidence tables
+and limits come across at the right altitude (pictures → architecture/architecture.md;
+contracts → the owning module spec), not just requirement rows. The evidence columns (measured
+failure rates, incidents, CT refs) are the part code cannot carry — losing them in the merge is
+losing the reason the design is shaped the way it is.
 ```
 
 **Wait for completion.** If FAILED, log to promotion.md and STOP.
@@ -173,7 +184,7 @@ Note: This is a bootstrap merge. architecture/modules/ is empty by contract.
 
 Run all of the following in one pass; repeat until all pass or convergence stalls (no issues fixed for 2 consecutive iterations):
 
-- **Traceability Validation** — INVOKE `traceability-validator-agent`. Auto-fix ORPHAN and DUPLICATE errors. INVENTED and SPLIT require manual review.
+- **Traceability Validation** — INVOKE `traceability-validator-agent` with `Validation scope: post-merge`. Auto-fix "Orphan Requirements" and "Missing Requirement Coverage Tables". "Architecture Gaps" and "Invalid REQ-ID References" require manual review.
 - **Integration Matrix Cycle Detection** (BLOCKING) — DFS on directed graph. No cycles permitted.
 - **Sum Test Validation** (BLOCKING) — modules exactly match architecture.
 - **Deep Coherence Analysis** — INVOKE `coherence-checker-agent`:
@@ -185,6 +196,7 @@ Run all of the following in one pass; repeat until all pass or convergence stall
 
   Source of Truth: PRD.md (read-only)
   Design Documents: architecture/ (read and fix)
+  Modules: freshly bootstrapped by re-architect-agent this run
   Data Model: architecture/data-model.md (validate entity consistency across modules)
   EXCLUDED: poc/ (do not read or reference)
   ```
@@ -195,6 +207,8 @@ Run all of the following in one pass; repeat until all pass or convergence stall
 - **FAIL**: offer the user a choice — PROCEED (log warning) or STOP (user can switch back to main branch and fix issues).
 
 Update promotion.md with validation results, iterations used, remaining warnings.
+
+**Outputs:** merged `architecture/architecture.md`, merged `architecture/data-model.md`, bootstrapped `architecture/modules/*.md`.
 
 ### Phase 3: Code Promotion Plan
 
@@ -350,15 +364,15 @@ Update promotion.md: module result (PASS/BLOCKED), coverage, key notes.
 
 **After ALL modules complete:**
 
-#### Cross-Cutting Decision Sweep (NEW)
+#### Cross-Cutting Decision Sweep
 
-Apply decisions from `POC_PROMO_PREP.md` systematically across all `src/` files. This catches decisions that the analyzer may have assigned to only a subset of modules (e.g., `INT-2` generic error messages must apply to every API route, not just the ones the analyzer flagged).
+Apply decisions from `POC_PROMO_PREP.md` systematically across all `src/` files. This catches decisions that the analyzer may have assigned to only a subset of modules (e.g., an `INT-*` integration decision mandating generic error messages must apply to every API route, not just the ones the analyzer flagged).
 
 1. **Parse `POC_PROMO_PREP.md`** — extract each filled-in decision and classify it:
    - **File-scoped** (applies to all files of a certain type): e.g., an `INT-*` decision that says "generic error messages across all routes" applies to every API route, not just the ones the analyzer flagged; an `AUTH-*` decision about fallback UI messaging applies to every page component referencing the auth provider's config
-   - **String-scoped** (specific string patterns to remove/replace across the codebase): e.g., `.env.local` references in error messages or UI text
+   - **String-scoped** (specific string patterns to remove/replace across the codebase): e.g., a decision to strip stale POC-era file or path references from error messages or UI text
    - **Config-scoped** (env vars, dependency-manifest declarations — whatever form the project uses for config): e.g., an `INT-*` decision that introduces a new env var like `AI_MODEL`, or an `INT-*` decision that adds a required dependency to the project's manifest
-   - **Deployment-scoped** (documented only in `POC_PROMOTION_REPORT.md`, no code change): `DEP-2`, `DEP-3`, `DEP-4`
+   - **Deployment-scoped** (documented only in `POC_PROMOTION_REPORT.md`, no code change): the `DEP-*` decisions that are deployment-scoped
 
 2. **For each code-impacting decision, scan `src/` and apply fixes:**
    - Build a grep/glob query that finds all violations
@@ -384,6 +398,25 @@ Report sweep results to promotion.md and include a summary in `POC_PROMOTION_REP
 
 Update promotion.md: L2 results.
 
+#### Architecture alignment gate
+
+**INVOKE `architecture-alignment-agent`** with:
+
+```
+ARCHITECTURE ALIGNMENT — POST-PROMOTION RECONCILIATION:
+- Scope: main (edit only architecture/**)
+- Change refs: main — POC promotion — per-module execution results (AS_IS / ADAPT / REWRITE)
+- Changed files: everything under src/ produced in Phase 4
+- Deviation Reports: {coding-agent Deviation Report items — departures from the spec AND mechanisms the code now has that the docs do not describe; or "none"}; AS_IS modules: the surgical-edit list applied by the orchestrator stands in as their Deviation Report
+- Standard: .claude/rules/architecture-doc-standard.md
+```
+
+The Phase 2 merge documented the *intended* design; Phase 4's per-module execution (especially
+ADAPT and REWRITE outcomes) is where reality can drift from it. This gate reconciles the merged
+docs with the code that was actually promoted, and verifies the POC's decision documentation
+(diagrams, evidence tables, limits) survived the merge at the right altitudes. Log its report to
+promotion.md; surface any code-vs-approved-design flags to the user.
+
 ### Phase 5: Report & Finalize
 
 This phase produces **three separate output artifacts** at project root:
@@ -396,7 +429,7 @@ This phase produces **three separate output artifacts** at project root:
 
 #### 5a. Generate `CONFIG_GUIDE.md` at project root
 
-This file is the **production analog of the POC's config guide** — one section per external service the promoted code actually uses, with step-by-step provider-dashboard instructions for obtaining the credentials and wiring them into `.env`.
+This file is the **production analog of the POC's config guide (if the POC has one)** — one section per external service the promoted code actually uses, with step-by-step provider-dashboard instructions for obtaining the credentials and wiring them into `.env`.
 
 **Input sources** (read all of these; `CONFIG_GUIDE.md` is a synthesis, not a template fill-in):
 - `poc/temp/poc_promotion/POC_PROMO_PREP.md` — human decisions (DP / AUTH / SEC / INT / DEP) including which providers, environments, regions were chosen for production
@@ -408,7 +441,7 @@ This file is the **production analog of the POC's config guide** — one section
 
 **Generation is project-driven, not template-driven.** The sections, headings, env var names, provider names, and setup steps must all come from the actual project's stack as declared in the sources above. The framework does not know ahead of time whether the project uses Postgres vs MongoDB, Auth0 vs Clerk vs NextAuth, Bedrock vs OpenAI vs a local model, S3 vs R2 vs GCS, etc. — all of that comes from the project.
 
-**Document structure** (use the POC config guide as the style reference; the skeleton below is generic and must be filled with project-specific content):
+**Document structure** (use the POC config guide, if present, as the style reference; the skeleton below is generic and must be filled with project-specific content):
 
 ```markdown
 # [Project Name from README or PRD] — Production Configuration Guide
@@ -417,7 +450,7 @@ This guide walks through configuring the production environment after `/promote-
 
 > The configuration file path, name, and format are specific to this project — see the Quick Start below.
 
-> For the POC (pre-promotion) configuration, see the POC config guide referenced at the bottom of this file.
+> For the POC (pre-promotion) configuration, see the POC config guide referenced at the bottom of this file (if the POC has one).
 
 ## Quick Start
 
@@ -567,8 +600,8 @@ Generated by `/promote-poc` on [date]
 
 | Decision | Scope | Files Touched | Result |
 |----------|-------|---------------|--------|
-| INT-2 (generic error messages) | All API routes | 17 | Applied |
-| AUTH-2 (.env.local references) | Client components | 2 | Applied |
+| [e.g., an INT-* integration decision — generic error messages] | All API routes | 17 | Applied |
+| [e.g., an AUTH-* decision's file references] | Client components | 2 | Applied |
 | ... | ... | ... | ... |
 
 ## Human Decisions Applied
@@ -657,7 +690,34 @@ Next: Read CONFIG_GUIDE.md, fill in the project's production config file(s), the
 9. **Structural completeness** — Every component needs `Implements:` tags. Every module starts with Requirement Coverage table. Module Registry, Integration Matrix (all 5 columns) must be complete.
 10. **All validations must pass** — Traceability (PASS), cycle detection (no cycles), sum test (PASS), coherence (PASS or PARTIAL_PASS).
 11. **All test gates apply** — L1 unit tests (60% coverage), smoke tests, L2 integration tests. Applies to all three tiers (AS_IS, ADAPT, REWRITE).
-12. **Cross-cutting decisions apply systematically** — After per-module implementation, sweep `src/` to apply `POC_PROMO_PREP.md` decisions (INT-2 error messages, AUTH-2 string references, etc.) uniformly. The sweep runs before L2.
+12. **Cross-cutting decisions apply systematically** — After per-module implementation, sweep `src/` to apply `POC_PROMO_PREP.md` decisions (e.g., an INT-* integration decision's error-message mandate, an AUTH-* decision's string references) uniformly. The sweep runs before L2.
 13. **Resume capability** — On re-run, check `poc/temp/poc_promotion/promotion.md` and `tracking/module-tracking.md` to skip completed work.
 14. **No secrets in output** — `POC_PROMOTION_REPORT.md` lists what secrets are needed and where to get them, never actual values.
 15. **Code review is intentionally not part of promotion** — unlike `/generate-code`, this command does not offer a `-review` flag. Quality assurance on promoted code relies on: (a) the POC-maturity classification (Phase 1) calibrating expectations, (b) the three-tier decision model (Phase 3) choosing the right adaptation strategy per module, (c) L1/smoke/L2 gates (Phase 4) enforcing functional correctness, and (d) the cross-cutting decision sweep (Phase 4) applying human decisions systematically. Adding a review pass on top would duplicate these checks without commensurate value. For explicit review of production code changes after promotion, use `/modify` on a feature branch — it runs the full gate cycle including L2.
+
+## Agents Used
+
+| Agent | Purpose | Invocation |
+|-------|---------|------------|
+| `re-architect-agent` | Merge POC architecture into main and bootstrap production modules | Phase 2a |
+| `traceability-validator-agent` | Validate REQ-ID coverage across the merged docs (`Validation scope: post-merge`) | Phase 2c |
+| `coherence-checker-agent` | Deep semantic coherence analysis of the merged design documents | Phase 2c |
+| `code-promotion-analyzer-agent` | Per-module promotion decisions (AS_IS / ADAPT / REWRITE) | Phase 3 |
+| `coding-agent` | Implement ADAPT/REWRITE modules; targeted fixes in repair loops | Phase 4 — per module |
+| `unit-test-generator-agent` | Generate unit tests (max 5, 60% coverage target) | Phase 4 — per module |
+| `unit-tester-agent` | Execute L1 unit tests and enforce the coverage gate | Phase 4 — per module |
+| `smoke-test-agent` | Verify each module starts and basic functionality works | Phase 4 — per module |
+| `l2-integration-agent` | Generate and run cross-module integration tests (L2 gate) | Phase 4 — after the sweep |
+| `tracking-update-agent` | Update module status in `tracking/module-tracking.md` | Phase 4 — per module + after L2 |
+| `architecture-alignment-agent` | Reconcile merged docs with the promoted code (alignment gate) | Phase 4 — after L2 |
+
+## Outputs
+
+- `CONFIG_GUIDE.md` — human-facing production configuration guide (project root)
+- Configuration template file(s) — in the project's detected config format, e.g. `.env.example` (project root)
+- `POC_PROMOTION_REPORT.md` — promotion metadata and history (project root)
+- `architecture/architecture.md` and `architecture/data-model.md` — merged with the POC architecture
+- `architecture/modules/*.md` — bootstrapped production module specs
+- `src/` — promoted production code (with `tests/` from the test gates)
+- `tracking/module-tracking.md` — created in Phase 3, updated through Phase 4
+- `poc/temp/poc_promotion/promotion.md` — running promotion log (resume capability)

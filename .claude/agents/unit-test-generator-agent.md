@@ -1,6 +1,6 @@
 ---
 name: unit-test-generator-agent
-description: Generate comprehensive unit tests for a completed module
+description: Generate minimal, high-value unit tests (max 5 per module) for a completed module
 model: opus
 color: yellow
 ---
@@ -58,7 +58,7 @@ When generating tests for a module:
 
 ### Test Organization
 ```
-/tests/unit/{module_name}/
+tests/unit/{module_name}/
 ├── {module_name}.test.{ext}      # All module tests in ONE file (e.g., .ts, .py, .go)
 └── (optional) test-helpers.{ext} # Only if truly needed
 ```
@@ -134,7 +134,7 @@ When complete, you will have created:
 - **MUST** limit to 5 test cases maximum (HARD LIMIT)
 - **MUST** follow the Design Cascading Framework (DCF)
 - **MUST** mock only external dependencies (DB, HTTP, filesystem)
-- Test files go in `/tests/unit/{module_name}/`
+- Test files go in `tests/unit/{module_name}/`
 - ONE test file per module (not multiple files)
 - Use clean, standard test patterns
 
@@ -148,7 +148,7 @@ Module ID: M{N}
 Module Name: {Module Name}
 
 Test File Created:
-- /tests/unit/{module_name}/{module_name}.test.{ext} (5 tests)
+- tests/unit/{module_name}/{module_name}.test.{ext} (5 tests)
 
 Total Tests: 5 (MAX)
 Coverage Target: {COVERAGE_TARGET}
