@@ -22,10 +22,10 @@ paths:
 
 ```
 project-root/
-├── .claude/                   # DCF Framework (IMMUTABLE)
-│   ├── commands/
-│   ├── agents/
-│   ├── skills/
+├── .claude/                   # DCF Framework
+│   ├── commands/              # (IMMUTABLE)
+│   ├── agents/                # (IMMUTABLE)
+│   ├── skills/                # (IMMUTABLE)
 │   └── rules/                 # Project rules (auto-loaded)
 ├── architecture/              # Architecture docs
 │   ├── architecture.md
@@ -58,7 +58,13 @@ project-root/
 │   │   └── poc_promotion/
 │   │       ├── POC_PROMO_PREP.md   # Human questionnaire (produced during promotion preparation)
 │   │       └── promotion.md        # Running promotion log (maintained during POC promotion)
-│   └── src/                   # POC source (UI-focused, all mocks)
+│   ├── docs/                  # (optional) POC's own config guide (real-mode)
+│   ├── tests/                 # (optional) POC tests
+│   ├── scripts/               # (optional) POC build/deploy scripts
+│   ├── infra/                 # (optional) POC infrastructure configs
+│   └── src/                   # POC source — layout follows the POC architecture:
+│       │                      #   mock POCs use mocks/types/components/pages;
+│       │                      #   a real-mode POC may use app/server/shared
 │       ├── mocks/             # Mock data files
 │       ├── types/             # Shared types/models
 │       ├── components/        # UI components
@@ -72,5 +78,5 @@ project-root/
 1. **All code in `src/`** - No source files at root
 2. **Colocate configs** - Build configs live with their target (`src/app/`, `src/server/`)
 3. **IMMUTABLE** - Never modify `.claude/commands/`, `.claude/agents/`, `.claude/skills/`
-4. **Source of truth** - `tracking/module-tracking.md` for module status; `tracking/change-tracking.md` is an append-only PM log of post-promotion change requests (no root-level `CHANGELOG.md` — the git branch is the technical changelog)
+4. **Source of truth** - `tracking/module-tracking.md` for module status; `tracking/change-tracking.md` is an append-only PM log of post-promotion change requests (no root-level `CHANGELOG.md` — the git branch is the technical changelog; the DCF framework's own `CHANGELOG.md` at the framework-repo root is exempt — it logs framework changes, not project changes)
 5. **POC isolation** - `poc/` is self-contained. POC code never imports from `src/`. Main `src/` never imports from `poc/`. POC has its own dependencies, configs, and architecture docs.

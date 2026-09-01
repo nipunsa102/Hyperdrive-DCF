@@ -21,11 +21,15 @@ POC mode is active when the invoking command passes:
 4. **No real integrations:** Dependencies are mocked, not connected to live services
 5. **Standard quality rules still apply:** No scope creep, KISS, clean code
 
+## Real-Mode Override (`-special`)
+
+A POC generated with a `-special` directive MAY be a real system. The authority is the deviation table in `poc/architecture/architecture.md`: where it declares a real integration (database, auth, storage, external service, deployment), that layer is REAL — the mock rules above apply only to layers it does not cover. Everything else stands: KISS, clean code, navigable screens, smoke gate. Agents invoked with `Module ID: POC-M{N}` must check the POC architecture's deviation table before assuming mocks.
+
 ## Workflow Overrides
 In POC mode, the standard implementation workflow is modified:
 
 - **Skip integration sanity check:** No real dependencies to verify
 - **Skip test readiness:** No unit tests or test fixtures required
-- **Only gate:** Smoke test (app starts and screens render)
+- **Runtime gate:** Smoke test (app starts and screens render). The orchestrating command also runs the architecture-alignment gate (docs vs code) — see .claude/rules/architecture-doc-standard.md.
 
 For output locations and folder structure, see `project-structure.md` (poc/ section).

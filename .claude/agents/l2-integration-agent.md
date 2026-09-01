@@ -79,7 +79,7 @@ Derive the 5 critical user flows dynamically from project documents — do NOT h
 1. `architecture/architecture.md` - System architecture, module structures, Integration Matrix
 2. `architecture/modules/module-*.md` - All module development specifications
 3. **CRITICAL - READ ACTUAL IMPLEMENTATION CODE**:
-   - Use `Read` tool to examine `/src/modules/*/` directories
+   - Use `Read` tool to examine each module's source location from its spec (`src/{module_location}/`)
    - Extract ACTUAL class names, method signatures, import paths
    - Understand ACTUAL data structures being used
 
@@ -103,12 +103,10 @@ For each row:
 
 ### Test Generation Output
 
-Create in `/tests/integration/`:
+**Coverage Documentation** (ephemeral reports tree):
+- `tests/reports/integration/coverage_matrix.md` - Integration Coverage Matrix (modules → tests mapping)
 
-**Coverage Documentation:**
-- `coverage_matrix.md` - Integration Coverage Matrix (modules → tests mapping)
-
-**Test Files (ONE file only):**
+**Test Files (ONE file only), in `tests/integration/`:**
 - `integration.test.{ext}` - All 10 integration tests in a single file (e.g., `.ts`, `.py`)
 
 **Test Structure:**
@@ -140,7 +138,7 @@ describe('L2 Integration Tests', () => {
 ## PHASE 2: TEST EXECUTION
 
 ### Pre-Execution Validation
-1. Load Integration Coverage Matrix from `/tests/integration/coverage_matrix.md`
+1. Load Integration Coverage Matrix from `tests/reports/integration/coverage_matrix.md`
 2. Verify test files exist for all documented patterns
 3. Check all modules have associated tests
 4. Confirm local service dependencies are available
@@ -227,7 +225,7 @@ IF still failing after 5 attempts:
 ```markdown
 ## L2 Integration Gate Report
 
-**Status**: PASS
+**Status**: SUCCESS
 **Execution Time**: {time}
 
 ### Test Summary
@@ -259,7 +257,7 @@ IF still failing after 5 attempts:
 ### Final JSON Response
 ```json
 {
-  "status": "PASS",
+  "status": "SUCCESS",
   "test_summary": {
     "generated": 10,
     "executed": 10,
@@ -273,8 +271,8 @@ IF still failing after 5 attempts:
   "integration_matrix_validated": true,
   "fix_loop_iterations": 2,
   "reports_generated": [
-    "/tests/reports/integration/coverage_report.json",
-    "/tests/reports/integration/coverage_matrix.md"
+    "tests/reports/integration/coverage_report.json",
+    "tests/reports/integration/coverage_matrix.md"
   ]
 }
 ```
@@ -319,8 +317,8 @@ IF still failing after 5 attempts:
 - **MUST** enforce fix loop (max 5 attempts) before blocking
 - **MUST** follow the Design Cascading Framework (DCF)
 - **MUST** use local services only (no real cloud calls)
-- Test files go in `/tests/integration/`
-- Reports go in `/tests/reports/integration/`
+- Test files go in `tests/integration/`
+- Reports go in `tests/reports/integration/` (including `coverage_matrix.md`)
 - ONE test file only: `integration.test.{ext}` (matching project language, e.g., `.ts`, `.py`)
 
 ---

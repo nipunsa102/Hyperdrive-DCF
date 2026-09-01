@@ -15,6 +15,7 @@ You receive the current conversation context including:
 - `PRD.md` content (if exists)
 - `architecture/architecture.md` content (if exists)
 - `architecture/modules/*.md` content (if exists)
+- `Validation scope: <prd-only|architecture|full|post-merge>` from the invoker (see Context-Aware Validation below)
 
 ## Validation Process
 
@@ -64,6 +65,8 @@ Compare checklists to find:
 3. **Invalid References**: REQ-IDs referenced that don't exist in PRD.md
 
 ## Output Format
+
+The report emits four gap classes, titled exactly: **Orphan Requirements** and **Missing Requirement Coverage Tables** (safe for the calling command to auto-fix), **Architecture Gaps** and **Invalid REQ-ID References** (manual review required).
 
 Return a structured report in this exact format:
 

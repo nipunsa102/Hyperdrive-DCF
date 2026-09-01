@@ -44,6 +44,8 @@ Read the following files yourself:
 5. `TECHSTACK.md` — Technology choices (if exists)
 6. `DESIGNGUIDE.md` — Design constraints (if exists)
 
+The invoker may also pass `Modules: freshly bootstrapped...` — this enables the SHALLOW_COVERAGE downgrade path in Context Awareness below (SHALLOW_COVERAGE classified MINOR instead of MAJOR).
+
 ## Analysis Process
 
 ### Context Awareness

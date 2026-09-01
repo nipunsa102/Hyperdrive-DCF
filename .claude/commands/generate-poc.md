@@ -1,12 +1,12 @@
 ---
 description: Generate a navigatable POC with mock data and mock integrations
-model: claude-fable-5
+model: fable
 ---
 
 **Switches**: `-special`
 
 **Switch Definitions**:
-- `-special` → Special requirements or focus areas for the POC
+- `-special` → Special requirements or focus areas for the POC — may direct REAL integrations (database, auth, deployed hosting, live external services) instead of mocks; any such deviation MUST be recorded as a deviation table in `poc/architecture/architecture.md`
 
 ## Purpose
 
@@ -65,12 +65,15 @@ Generates a complete Proof of Concept (POC) in a `/poc` folder. The POC has a fu
    - Read `PRD.md` for project requirements
    - Read `architecture/architecture.md` if it exists — reuse screen layouts, and component structure
    - Read `TECHSTACK.md` if it exists — use the specified tech stack. if not **MUST create a techstack that is most suitable for the project based on the architecture and PRD**
-   - Read `architecture/modules/` if they exist - When POC modules are created this module structure must be followed
+   - Read `poc/architecture/modules/` if they exist — on a resumed run, reuse the existing POC module specs (main `architecture/modules/` is empty per the Prerequisites gate)
 
 3. **Determine UI Stack**
    - If `TECHSTACK.md` specifies a technology stack, use it.
    - If not specified, pick a stack idiomatic for the project's domain (e.g., for a web SPA: React + TypeScript + Vite + Tailwind CSS; for a desktop GUI: Tauri / Electron / native toolkit; for a CLI prototype: the project's primary language with a lightweight TUI library). Choose based on what the PRD describes, not a one-size-fits-all default.
    - The POC is UI-focused — no real backend server required
+
+4. **Process `-special` Requirements**
+   - If `-special` is provided, record the special requirements and thread them into the Phase 2 architecture, Phase 3 module specs, and every Phase 4 coding-agent context.
 
 ### Phase 2: POC Architecture Generation
 
@@ -82,6 +85,15 @@ Generate a lightweight architecture document at `poc/architecture/architecture.m
 - Navigation flow (how screens connect — what clicks go where)
 - Mock data strategy (what data is mocked and where it lives)
 - Component list (major UI components needed)
+- **Mechanism pictures, when the POC has real mechanisms** (per
+  `.claude/rules/architecture-doc-standard.md`): a standard POC mocks everything and usually has
+  none — but a `-special`/real-mode POC that gains a pipeline, a multi-actor flow (e.g.
+  fire-and-poll), a budgets/limits regime, or failure/recovery semantics MUST carry the
+  understanding-oriented picture here (box diagram, UML-style sequence diagram, limits table),
+  with the implementation contract (pseudocode, decision-evidence table) in the owning module
+  spec. Placement litmus test: understanding-oriented → this file; implementation-oriented → the
+  module spec. Do not duplicate diagrams already in the root `architecture/architecture.md` for
+  parts the POC does not change — a pointer is enough.
 
 **MUST NOT Include:**
 - Backend architecture, API specs, database schemas
@@ -152,6 +164,7 @@ POC MODE — IMPORTANT INSTRUCTIONS:
 - This is a POC — ALL data is mocked, ALL integrations are mocked
 - No real API calls, no real database, no real authentication
 - Mock data comes from local files or hardcoded constants in poc/src/mocks/
+- EXCEPTION — real-mode POC (-special): where the POC architecture's deviation table declares a real integration, that layer is REAL, not mocked — follow poc/architecture/architecture.md; the mock rules above apply only to layers the deviation table does not cover (see .claude/rules/poc-mode.md, Real-Mode Override).
 - Every screen must be navigatable and interactive with mock data
 - Use the frontend stack from TECHSTACK.md; if TECHSTACK.md is silent, pick a stack idiomatic for the project's domain (e.g., React + TS + Vite + Tailwind for a web SPA — pick something else if the project isn't a web SPA)
 ```
@@ -191,13 +204,30 @@ After all modules are implemented:
    - **INVOKE `coding-agent`** to fix issues (max 3 attempts)
    - Re-run smoke test after each fix
 
-3. **Final verification checklist:**
+3. **Architecture alignment gate**
+   - **MUST INVOKE `architecture-alignment-agent`** with:
+
+   ```
+   ARCHITECTURE ALIGNMENT — POST-GENERATION AUDIT:
+   - Scope: poc (edit only poc/architecture/**)
+   - Change refs: poc — initial POC generation
+   - Changed files: everything generated under poc/ (POC architecture, module specs, poc/src/**, configs)
+   - Deviation Reports: {coding-agent Deviation Report items — departures from the spec AND mechanisms the code now has that the docs do not describe; or "none"}
+   - Standard: .claude/rules/architecture-doc-standard.md
+   ```
+
+   - Purpose: a completeness audit — everything the code actually does that the standard
+     classifies as a mechanism (pipelines, multi-actor flows, limits, failure semantics) is
+     documented at both altitudes before the POC is handed to stakeholders
+
+4. **Final verification checklist:**
    - [ ] POC starts (e.g., `cd poc && npm install && npm run dev`)
    - [ ] Every screen from the POC architecture is accessible
    - [ ] Navigation between all screens works
    - [ ] Mock data displays correctly on all views
    - [ ] Interactive elements (filters, sorts, search, status changes) work
    - [ ] Forms accept input and provide feedback
+   - [ ] Architecture alignment gate returned its verdict
 
 ## POC Folder Structure
 
@@ -212,6 +242,10 @@ poc/
 │       ├── module-1-{name}.md # POC module specs
 │       ├── module-2-{name}.md
 │       └── ...
+├── docs/                      # OPTIONAL — POC's own config guide (real-mode POCs)
+├── tests/                     # OPTIONAL — POC-level tests
+├── scripts/                   # OPTIONAL — helper / deploy scripts
+├── infra/                     # OPTIONAL — infrastructure configs (real-mode POCs)
 └── src/
     ├── main.{ext}             # App entry point
     ├── App.{ext}              # Root component with routing (if applicable)
@@ -228,6 +262,8 @@ poc/
         ├── {ScreenName}.{ext}
         └── ...
 ```
+
+The `poc/src/` layout follows the POC architecture — a standard mock POC uses `mocks/`, `types/`, `components/`, `pages/` as shown; a real-mode POC (`-special`) may use `app/`, `server/`, `shared/` instead.
 
 ## Implementation Flow
 
@@ -249,6 +285,8 @@ START → Read PRD.md + OVERVIEW.md + existing architecture (if any)
    └──────────────────────────────────────────────┘
           ↓
    Phase 5: Final smoke test (full app)
+          ↓
+   architecture-alignment-agent (docs vs code)
           ↓
         POC COMPLETE
 ```
@@ -290,9 +328,10 @@ The POC uses a minimal test approach — just enough to verify the UI works:
 | Gate | Scope | Blocking | When |
 |------|-------|----------|------|
 | Smoke Test | App starts, screens render | YES | After each module + final |
+| Architecture Alignment | Docs state present truth at both altitudes | YES | Phase 5, after final smoke |
 
 **No L1 unit tests. No L2 integration tests. No code review.**
-The only gate is: does it start and can you click through it?
+The runtime gate is: does it start and can you click through it? Plus the architecture-alignment gate on the docs.
 
 ## CRITICAL CONSTRAINTS
 
@@ -309,10 +348,8 @@ The only gate is: does it start and can you click through it?
 - [ ] POC starts (e.g., `cd poc && npm install && npm run dev`)
 - [ ] All screens from PRD feature areas are present and navigatable
 - [ ] Mock data displays realistically on all views
-- [ ] List/table view supports sort, filter, and search with mock data
-- [ ] Detail view shows full entity information
-- [ ] Status tracking works in UI
-- [ ] Notes/comments can be added (stored in-memory only)
+- [ ] Every primary view described in the PRD's feature areas renders with data
+- [ ] Navigation works between them
 - [ ] Primary workflow is walkable end-to-end (even with mock data)
 - [ ] A product manager could demo this to stakeholders and they'd understand the product
 
@@ -322,6 +359,7 @@ The only gate is: does it start and can you click through it?
 |-------|---------------|------------|
 | `coding-agent` | Implement each POC module (frontend + mocks) | Per module, with POC mode context |
 | `smoke-test-agent` | Verify screens render and app starts | After each module + final |
+| `architecture-alignment-agent` | Completeness audit: docs match generated code at both altitudes | Phase 5 — after the final smoke test |
 
 **Agents NOT used in POC:**
 - `unit-test-generator-agent` — No unit tests for POC

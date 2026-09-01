@@ -1,6 +1,6 @@
 ---
 description: Generate Code - Module Implementation
-model: claude-opus-4-8
+model: opus
 ---
 
 **Switches**: `-module`, `-special`, `-max-attempts`, `-review`, `-skip-smoke`
@@ -8,9 +8,9 @@ model: claude-opus-4-8
 **Switch Definitions**:
 - `-module` → Specific module number to implement (e.g., -module 3). If omitted, processes ALL modules in dependency order.
 - `-special` → Special implementation requirements or considerations
-- `-max-attempts` → Maximum number of test-fix cycles (default: 5)
+- `-max-attempts` → Maximum number of E2E-gate fix cycles (default: 5). The L1 repair loop (5) and module-E2E loop (3) are fixed.
 - `-review` → Enable optional code review (adds time but improves quality)
-- `-skip-smoke` → Skip smoke tests (not recommended, use only for foundational modules)
+- `-skip-smoke` → Skip the runtime gates (smoke + module E2E render check) — use only for foundational modules with no runnable surface.
 
 > **Note:** Retrofit mode (POC-to-production promotion) has moved to `/promote-poc`, which handles architecture merge, code analysis, and implementation in a single command. If `POC_CODE_PROMOTE_PLAN.md` exists at project root, it is from a previous version — use `/promote-poc` instead.
 
@@ -58,12 +58,13 @@ Implements modules directly from architecture specifications — and delivers th
 3. **Get list of modules to implement:**
    - If `-module N` specified: Only module N
    - Otherwise: All modules in dependency order from Integration Matrix
-4. **Read `DEPLOYMENT.md`** — build a **Deployment Context** summary passed to every coding-agent invocation:
+4. **Read `DEPLOYMENT.md`** — build a **Deployment Context** summary passed to every coding-agent invocation (a decision family absent from DEPLOYMENT.md means no decisions of that kind were required — continue):
    - Compute model & deployable topology (DEP-*) → process shape, host/port binding, static-serving strategy, entry point
    - Data platform & access model (DATA-*) → driver/dialect wiring, credential mechanism (password vs. platform-managed identity vs. developer-sign-in token), migration layout, initial-data source availability
    - Identity decisions (AUTH-*) → identity source per run mode, local-dev identity, deployed-environment guard, role-mapping injection via configuration
    - Configuration mechanism & Configuration Key Plan (SEC-*) → config module expectations and canonical key names (never invent alternate names for planned keys)
    - Integration tenancy (INT-*) and build/runtime expectations (OPS-*)
+5. **Initialize `tracking/module-tracking.md`** from the architecture's Module Registry if it does not exist (every module `Not Started`) — mirror of /promote-poc's initialization.
 
 **Path Configuration:**
 - Default: `/architecture/`, `/tracking/`
@@ -122,6 +123,7 @@ If bootstrap cannot complete, STOP — do not implement modules against an envir
   - Deployment Context: [the DEP/DATA/AUTH/SEC/INT/OPS decisions from DEPLOYMENT.md
     relevant to this module — dev run mode (fully local / hybrid / cloud), identity
     mode(s) and guard, config keys/mechanism, data access model, host binding, build shape]
+  - Special Requirements: {-special text, when provided}
   ```
 
 - Coding-agent generates complete module implementation
@@ -147,9 +149,9 @@ If bootstrap cannot complete, STOP — do not implement modules against an envir
     2. INVOKE `coding-agent` to fix the specific issues
     3. Re-run `unit-tester-agent`
     4. If still failing after 5 attempts:
-       - Mark module as `BLOCKED`
+       - Mark module as `Blocked`
        - Document blocking issue
-       - **MUST INVOKE `tracking-update-agent`** to update status
+       - **MUST INVOKE `tracking-update-agent`** with `module_l1_fail` to update status
        - EXIT (do not proceed)
 
 **L1 Repair Loop Orchestration:**
@@ -163,8 +165,8 @@ FOR attempt = 1 to 5:
     IF tests pass AND coverage >= Coverage Target:
         BREAK loop, proceed to smoke test
 IF all 5 attempts fail:
-    Mark module BLOCKED
-    INVOKE tracking-update-agent
+    Mark module Blocked
+    INVOKE tracking-update-agent (module_l1_fail)
     EXIT
 ```
 
@@ -183,8 +185,8 @@ IF all 5 attempts fail:
 
 - **FAILURE PATH (Smoke Test Fails)**:
   - Application doesn't start or crashes
-  - Mark module as `BLOCKED`
-  - **MUST INVOKE `tracking-update-agent`** to update status
+  - Mark module as `Blocked`
+  - **MUST INVOKE `tracking-update-agent`** with `module_blocked` to update status
   - EXIT (do not proceed)
 
 #### 1.5b Handle Functional Verification Result
@@ -192,28 +194,35 @@ IF all 5 attempts fail:
 **Skip this step** for foundational modules (no UI/API routes) or if `-skip-smoke` flag is set.
 
 If the smoke-test-agent returns `FUNC_FAIL` (structural checks passed but functional checks failed):
-1. This is a **data gap**, NOT a code bug — do NOT mark the module as BLOCKED
+1. This is a **data gap**, NOT a code bug — do NOT mark the module as `Blocked`
 2. INVOKE `coding-agent` with instructions to fix the seed/reference data (or the seeding code) in the dev environment for the failing routes (details from the smoke-test-agent's `functional_verification` section)
 3. Re-INVOKE `smoke-test-agent` to verify the fix
 4. Maximum 2 fix attempts. If still `FUNC_FAIL` after 2 attempts, log a warning and proceed (non-blocking but reported)
 
 If the smoke-test-agent returns `PASS`: Proceed to Step 1.5c.
-If the smoke-test-agent returns `FAIL`: Mark module BLOCKED (existing behavior).
+If the smoke-test-agent returns `FAIL`: Mark module `Blocked` (existing behavior).
 
 #### 1.5c Module E2E Check (UI modules — BLOCKING)
 
 **Skip this step** for modules with no UI screens, or if `-skip-smoke` is set.
 
-- **MUST INVOKE `e2e-test-agent`** with `Scope: module` — a headless-browser check that this module's screens render meaningful content and the primary interaction works, against the running app in the dev environment
+- **MUST INVOKE `e2e-test-agent`** — a headless-browser check that this module's screens render meaningful content and the primary interaction works, against the running app in the dev environment — with:
+  ```
+  Scope: module
+  Dev run mode: [fully local | hybrid | cloud] (from DEPLOYMENT.md)
+  App under test: [local start command | dev URL]
+  Verify: this module's screens + acceptance criteria (from the module spec)
+  Environment notes: [seeded-data expectations, dev identity mode, bootstrap-log flags]
+  ```
 - **SUCCESS:** proceed to tracking update
 - **FAIL:** enter the module E2E fix loop (max 3 attempts):
   1. Read the agent's failure diagnostics (failing step, console/network errors, likely layer)
   2. INVOKE `coding-agent` to fix (or repair seed data when the failure is classified as a data gap)
   3. Re-INVOKE `e2e-test-agent` (`module` scope)
-  4. If still failing after 3 attempts: mark module `BLOCKED`, INVOKE `tracking-update-agent`, EXIT
+  4. If still failing after 3 attempts: mark module `Blocked`, INVOKE `tracking-update-agent` with `module_blocked`, EXIT
 
 #### 1.6 Tracking Update
-- **MUST INVOKE `tracking-update-agent`** to update:
+- **MUST INVOKE `tracking-update-agent`** with `module_l1_pass` (L1 + smoke + module E2E passed) to update:
   - `/tracking/module-tracking.md` - Update module status, L1 coverage
 
 **→ Continue to next module in dependency order**
@@ -226,16 +235,18 @@ If the smoke-test-agent returns `FAIL`: Mark module BLOCKED (existing behavior).
 
 - **IF `-review` flag is set:**
   - INVOKE `code-review-agent` for all implemented modules
-  - **IF** Code reviewer agent identifies any major issues:
-    - **Issue Resolution Loop** (Maximum 5 iterations):
-      - Identify problematic modules
-      - INVOKE `coding-agent` to fix the identified issues
-      - INVOKE `unit-tester-agent` to re-run unit tests for affected modules
-      - If the Unit-test Gate does not PASS after 5 attempts:
-        - Mark affected modules as `Failed`
-        - MUST INVOKE `tracking-update-agent` to update status
+  - **Branch on the review status:**
+    - **PASS** → proceed to Step 3
+    - **PASS_WITH_WARNINGS** → log the warnings (surface them in the final report) and proceed to Step 3
+    - **FAIL** → **blocking fix loop** (maximum 2 iterations):
+      1. Identify problematic modules
+      2. INVOKE `coding-agent` to fix the identified issues
+      3. INVOKE `unit-tester-agent` to re-run unit tests for affected modules (regression guard)
+      4. Re-INVOKE `code-review-agent`
+      - If still FAIL after 2 iterations:
+        - Mark affected modules as `Blocked`
+        - MUST INVOKE `tracking-update-agent` with `module_blocked` to update status
         - **EXIT** without executing any further actions
-  - **ELSE IF** no major issues identified → Proceed to Step 3
 
 - **IF `-review` flag is NOT set:**
   - Skip code review entirely
@@ -256,14 +267,14 @@ If the smoke-test-agent returns `FAIL`: Mark module BLOCKED (existing behavior).
 
    - **SUCCESS PATH (l2-integration-agent returns SUCCESS)**:
      - All L2 tests pass
-     - **Mark all modules as L2 PASS**
-     - **MUST INVOKE `tracking-update-agent`** to update all tracking docs
+     - **Mark all modules as `Complete`**
+     - **MUST INVOKE `tracking-update-agent`** with `l2_pass` to update all tracking docs
      - **Implementation is COMPLETE**
 
    - **BLOCKED PATH (l2-integration-agent returns BLOCKED)**:
      - L2 tests failed after 5 fix attempts
-     - Mark affected modules as `BLOCKED`
-     - **MUST INVOKE `tracking-update-agent`** to update status
+     - Mark affected modules as `Blocked`
+     - **MUST INVOKE `tracking-update-agent`** with `l2_fail` to update status
      - EXIT without executing any further actions
 
    **NOTE:** You do NOT orchestrate the L2 fix loop. The l2-integration-agent is fully self-contained.
@@ -284,7 +295,7 @@ The application must be SEEN working in the chosen dev environment, driven the w
    ```
    The agent persists up to 10 journey tests under `tests/e2e/` and returns SUCCESS or FAIL with per-failure diagnostics (failing step, console/network errors, screenshots, likely layer).
 
-2. **SUCCESS:** proceed (cloud mode: see step 4 below; otherwise Step 4 Finalize).
+2. **SUCCESS:** proceed to Step 3.9 (cloud mode: run step 4's cloud verification first).
 
 3. **FAIL:** YOU orchestrate the E2E fix loop (max `-max-attempts`, default 5):
    ```
@@ -297,14 +308,34 @@ The application must be SEEN working in the chosen dev environment, driven the w
        4. Re-INVOKE e2e-test-agent (full scope)
        IF SUCCESS: BREAK
    IF all attempts fail:
-       Mark the modules owning the failing journeys BLOCKED
-       INVOKE tracking-update-agent
+       Mark the modules owning the failing journeys Blocked
+       INVOKE tracking-update-agent (module_blocked)
        EXIT
    ```
 
 4. **Cloud dev mode only:** after the gate passes locally, deploy the dev build to the cloud dev host (per `DEPLOYMENT.md`'s DEP/OPS decisions — dev environment only, never production), then re-INVOKE `e2e-test-agent` (full scope) against the cloud dev URL. A cloud-only failure is an environment/config issue — fix configuration (max 2 attempts), not application code that already passed locally.
 
 ---
+
+### Step 3.9: Architecture Alignment Gate (After E2E SUCCESS)
+
+Runs after the E2E gate passes (including step 4's cloud verification, in cloud mode) and **before Step 4 Finalize**.
+
+**MUST INVOKE `architecture-alignment-agent`** once, over the whole run:
+
+```
+ARCHITECTURE ALIGNMENT — POST-IMPLEMENTATION RECONCILIATION:
+- Scope: main (edit only architecture/**)
+- Change refs: main — /generate-code run — modules implemented this run
+- Changed files: everything under src/ produced this run
+- Deviation Reports: {coding-agent Deviation Report items — departures from the spec AND mechanisms the code now has that the docs do not describe; or "none"}
+- Standard: .claude/rules/architecture-doc-standard.md
+```
+
+Implementation is where designed topology quietly becomes something else — an extra call, a
+different limit, a changed failure path. The agent reconciles `architecture/` with what was
+actually built (both altitudes), and flags code-vs-approved-design discrepancies to the user
+rather than papering over them.
 
 ### Step 4: Finalize — Configuration Record & Handoff (After E2E SUCCESS)
 
@@ -334,6 +365,7 @@ GENERATE-CODE COMPLETE
 Modules: [N] complete ([list]) | Blocked: [N] [list if any]
 L1: all pass (avg [N]% coverage) | L2: PASS
 E2E: PASS ([N] journeys — headless browser: [tool] / [n/a: no UI])
+Alignment: [no-impact | reconciled | reconciled-with-flags] (flags surfaced to the user)
 Dev environment ([fully local | hybrid | cloud]): RUNNING
   Start / reach it: [dev command or URL]
   Bootstrap log: tracking/env-setup.md
@@ -372,7 +404,7 @@ START → Read architecture.md + DEPLOYMENT.md → Parse Integration Matrix
     │     smoke-test-agent vs REAL dev env (BLOCKING) │
     │     ├─ PASS → proceed                           │
     │     ├─ FUNC_FAIL → fix seed data (max 2)        │
-    │     └─ FAIL → BLOCKED                           │
+    │     └─ FAIL → Blocked                           │
     │  6. UI module? e2e-test-agent [module scope]    │
     │     headless render + interaction (fix loop ×3) │
     │  7. tracking-update-agent                       │
@@ -402,6 +434,13 @@ START → Read architecture.md + DEPLOYMENT.md → Parse Integration Matrix
     └──────────────────────────────────────────────┘
            ↓
     SUCCESS → tracking-update-agent
+           ↓
+    ┌──────────────────────────────────────────────┐
+    │ architecture-alignment-agent (docs vs code)   │
+    │  • reconciles architecture/ with src/         │
+    │  • verdict: no-impact | reconciled |          │
+    │    reconciled-with-flags (flags → user)       │
+    └──────────────────────────────────────────────┘
            ↓
     ┌──────────────────────────────────────────────┐
     │ Finalize (all modules complete)               │
@@ -442,6 +481,7 @@ START → Read architecture.md + DEPLOYMENT.md → Parse Integration Matrix
 | Code Review | All modules | N/A | NO (optional) | After all L1 + smoke |
 | L2 Integration | Cross-module | 10 tests max | YES | After all modules complete |
 | E2E Functional (headless browser for UI) | Whole app vs running dev env | 10 journeys max | YES | After L2 |
+| Architecture Alignment (documentation gate, not a test) | architecture/ docs vs implemented code | N/A — verdict: no-impact / reconciled / reconciled-with-flags | YES | After E2E, before Finalize |
 
 ## Dependency Management
 
@@ -467,13 +507,13 @@ Implementation Order: M1 → M2 → M3 → M4 → M5
 
 ## Manual Intervention Rules
 
-- **Module Blocking**: If ANY module is BLOCKED, STOP all implementation
+- **Module Blocking**: If ANY module is `Blocked`, STOP all implementation
 - **Dependency Violation**: Never implement a module before its dependencies
 - **Bootstrap Failure**: If the dev environment cannot be bootstrapped (Step 0.5), STOP before any module
-- **L1 Test Failure Threshold**: After 5 repair attempts, mark module as BLOCKED
-- **Module E2E Failure Threshold**: After 3 fix attempts, mark module as BLOCKED
-- **L2 Test Failure Threshold**: After 5 fix attempts, mark as BLOCKED
-- **E2E Gate Failure Threshold**: After `-max-attempts` fix cycles (default 5), mark owning modules as BLOCKED
+- **L1 Test Failure Threshold**: After 5 repair attempts, mark module as `Blocked`
+- **Module E2E Failure Threshold**: After 3 fix attempts, mark module as `Blocked`
+- **L2 Test Failure Threshold**: After 5 fix attempts, mark as `Blocked`
+- **E2E Gate Failure Threshold**: After `-max-attempts` fix cycles (default 5), mark owning modules as `Blocked`
 
 ## Important Notes
 
@@ -527,7 +567,7 @@ Implementation Order: M1 → M2 → M3 → M4 → M5
   - `tracking-update-agent`
 
   **After ALL Modules Complete:**
-  - `code-review-agent` (only if `-review` flag) → `l2-integration-agent` → `e2e-test-agent` [full scope] → `tracking-update-agent`
+  - `code-review-agent` (only if `-review` flag) → `l2-integration-agent` → `e2e-test-agent` [full scope] → `tracking-update-agent` → `architecture-alignment-agent` (Step 3.9 — docs reconciled with code before Finalize)
   - Finalize (Step 4): `CONFIG_GUIDE.md` as-built record + config template from `DEPLOYMENT.md`
 
 - Use clean, readable code following standard best practices

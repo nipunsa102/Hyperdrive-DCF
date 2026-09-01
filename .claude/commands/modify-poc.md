@@ -1,6 +1,6 @@
 ---
 description: Implement stakeholder-requested changes to the POC with full tracking
-model: claude-opus-4-8
+model: opus
 ---
 
 **Switches**: `-change`, `-new`, `-fix`
@@ -24,13 +24,13 @@ Implements stakeholder-requested changes to the POC and tracks all modifications
 **What this command does:**
 - Implements the requested change, new feature, or bug fix across POC code, architecture, and module specs as needed
 - Appends a raw log entry to `poc/poc-tracking/change-tracking.md` (product manager reference)
-- Creates or updates a detailed technical entry in `poc/poc-tracking/CHANGELOG.md` (future `/sync-prd` consumption)
+- Creates or updates a detailed technical entry in `poc/poc-tracking/CHANGELOG.md` (consumed by `/sync-prd`)
 - Verifies the POC still works after changes
 
 **What this command does NOT do:**
 - Modify anything outside `poc/` (never touches main `src/`, `architecture/`, `tracking/`)
 - Modify `PRD.md` or main architecture docs (reads them for context only)
-- Propagate changes back to PRD (separate future `/sync-prd` command)
+- Propagate changes back to PRD (handled by `/sync-prd`)
 
 ## Prerequisites
 
@@ -113,6 +113,7 @@ This command maintains two tracking files in `poc/poc-tracking/`:
 2. **Read existing tracking files** (if they exist)
    - Read `poc/poc-tracking/CHANGELOG.md` to understand prior changes and current state
    - Read `poc/poc-tracking/change-tracking.md` to see request history and determine next CT number
+   - Also read any `poc/poc-tracking/changelog-Merged-*.md` archives when determining the next CL number — `/sync-prd` archives the changelog, and CL numbers are never reused.
 
 3. **Read POC architecture and module specs**
    - Read `poc/architecture/architecture.md` for current POC structure
@@ -136,20 +137,21 @@ This command maintains two tracking files in `poc/poc-tracking/`:
 3. **Determine scope based on mode:**
    - **`-change` mode:** May be code only (visual/behavioral tweak) OR architecture + specs + code (if the modification affects structure). If the change is structurally significant enough to warrant a new module, a new module spec may be created.
    - **`-new` mode:** Always requires architecture + module specs + code — new features MUST be reflected in POC architecture and at least one module spec before code is written
-   - **`-fix` mode:** Code only — bug fixes do NOT update architecture or module specs (the specs describe intended behavior, which hasn't changed)
+   - **`-fix` mode:** Code only for the AUTHORING phase — the orchestrator does not write architecture or module specs up front. But a fix is not presumed architecture-neutral: a fix that changes call topology, algorithms, limits, or failure semantics is a design change wearing a fix's clothes (a measured failure mode: a pipeline redesign once arrived classified as a fix). The `architecture-alignment-agent` (Phase 3, step 7) makes that call after implementation and updates the docs when the design did change.
 
 ### Phase 3: Implementation
 
 1. **Update POC architecture** (REQUIRED for `-new`, if affected for `-change`, SKIP for `-fix`)
    - **`-new` mode:** MUST update `poc/architecture/architecture.md` — add the new feature to the screen inventory, navigation flow, and component list
    - **`-change` mode:** Update `poc/architecture/architecture.md` only if the change affects structure, navigation, or data model
-   - **`-fix` mode:** SKIP — bug fixes don't change architecture (the design was correct, the code wasn't)
+   - **`-fix` mode:** SKIP authoring here — the `architecture-alignment-agent` reconciles the docs after implementation if the fix turned out to change the design
    - Only update sections relevant to the change
+   - Follow `.claude/rules/architecture-doc-standard.md` — the two-altitude rule: understanding-oriented diagrams (box, UML-style sequence, limits tables) in `poc/architecture/architecture.md`; implementation contracts (API specs, pseudocode, state machines, decision-evidence tables) in the module spec
 
 2. **Update POC module specs** (REQUIRED for `-new`, if affected for `-change`, SKIP for `-fix`)
    - **`-new` mode:** MUST update or create module specs in `poc/architecture/modules/` — add new screens, acceptance criteria, and mock data requirements. If the feature fits an existing module, update that spec. If it requires a new module, create `poc/architecture/modules/module-{N}-{name}.md`
    - **`-change` mode:** Update affected specs if the change impacts screen descriptions, acceptance criteria, or mock data requirements. If the modification is structurally significant enough to warrant a new module (e.g., splitting a screen into separate concerns), create `poc/architecture/modules/module-{N}-{name}.md`
-   - **`-fix` mode:** SKIP — the specs already describe the correct behavior
+   - **`-fix` mode:** SKIP authoring here — the alignment gate (step 7) decides whether the fix changed the design and updates the specs if so
 
 3. **Investigate and locate the issue** (`-fix` mode only)
    - The `-fix` switch accepts a plain natural language description (e.g., "the calendar crashes when I click next month") — no PRD IDs, module numbers, or file paths required
@@ -187,6 +189,24 @@ This command maintains two tracking files in `poc/poc-tracking/`:
    - Maximum 3 fix attempts
    - If still failing after 3 attempts: STOP and report the failure to the user
 
+7. **Architecture alignment gate** (ALL modes — `-fix` included)
+   - **MUST INVOKE `architecture-alignment-agent`** after the smoke test passes, with:
+
+   ```
+   ARCHITECTURE ALIGNMENT — POST-CHANGE RECONCILIATION:
+   - Scope: poc (edit only poc/architecture/**)
+   - Change refs: poc CT-{NNN} — {mode} — {raw request text}
+   - Changed files: {list of files created/modified in this change}
+   - Deviation Reports: {coding-agent Deviation Report items — departures from the spec AND mechanisms the code now has that the docs do not describe; or "none"}
+   - Standard: .claude/rules/architecture-doc-standard.md
+   ```
+
+   - The agent classifies the change (no-impact → cheap exit; impact → reconciles both altitudes),
+     fixes pre-existing drift it trips over, and returns a report
+   - Include the agent's doc updates in the Phase 4 CHANGELOG entry
+   - If the agent flags a code-vs-approved-design discrepancy: surface it to the user — do not
+     silently accept either side
+
 ### Phase 4: Tracking Updates
 
 After successful implementation and smoke test:
@@ -196,12 +216,12 @@ After successful implementation and smoke test:
 1. Determine the next CT number:
    - If file doesn't exist, start with CT-001
    - Otherwise, increment from the last CT number
-2. Append a new entry with today's date, the mode tag (`[CHANGE]` or `[NEW]`), and the raw switch text
+2. Append a new entry with today's date, the mode tag (`[CHANGE]`, `[NEW]`, or `[FIX]`), and the raw switch text
 3. If the file doesn't exist, create it with the header `# POC Change Tracking` followed by the first entry
 
-**B) Update `poc/poc-tracking/CHANGELOG.md`** (living document — for `-change` and `-new` modes only)
+**B) Update `poc/poc-tracking/CHANGELOG.md`** (living document — all modes)
 
-1. **`-fix` mode:** Create a lightweight `[FIX]` entry — code changes only, no architecture or module spec changes. Description should note what was broken and what was fixed.
+1. **`-fix` mode:** Create a lightweight `[FIX]` entry — description notes what was broken and what was fixed. If the alignment gate reconciled docs (the fix changed the design), list those doc updates in the entry's Architecture/Module Spec Changes fields instead of "None (fix)".
 2. **`-change` / `-new` mode:** Determine if this change should UPDATE an existing CL entry or CREATE a new one:
    - If a prior CL entry covers the same functional area or PRD sections → UPDATE it
    - If this is a new area → CREATE a new CL entry with the next CL number
@@ -234,7 +254,8 @@ START → Read switch (exactly one of -change, -new, -fix REQUIRED)
    │  3. Determine scope:                         │
    │     -change → code only OR arch+specs+code   │
    │     -new    → ALWAYS arch+specs+code         │
-   │     -fix    → code only (investigate bug)    │
+   │     -fix    → code only; alignment gate      │
+   │              decides doc impact after        │
    └──────────────────────────────────────────────┘
           ↓
    Phase 3: Implementation
@@ -245,14 +266,16 @@ START → Read switch (exactly one of -change, -new, -fix REQUIRED)
    │  3. Investigate bug (-fix: read source code)  │
    │  4. coding-agent (per affected module)        │
    │  5. smoke-test-agent (verify POC works)       │
-   │     └─ Fix loop (max 3) if fails              │
+   │  6. Fix loop (max 3) if smoke test fails      │
+   │  7. architecture-alignment-agent (ALL modes)  │
+   │     └─ docs reconciled to code reality        │
    │                                               │
    └──────────────────────────────────────────────┘
           ↓
    Phase 4: Tracking Updates
    ┌──────────────────────────────────────────────┐
    │  A. change-tracking.md — Append with [TAG]   │
-   │  B. changelog.md:                            │
+   │  B. CHANGELOG.md:                            │
    │     -change/-new → full or merged CL entry   │
    │     -fix → lightweight [FIX] CL entry        │
    └──────────────────────────────────────────────┘
@@ -278,7 +301,7 @@ Files NEVER touched:
 - Main `PRD.md` (read-only; `/sync-prd` handles propagation later)
 - Main `architecture/` (read-only)
 - Main `src/` (read-only — POC is self-contained)
-- Main `tracking/` (not used by POC path)
+- Main `tracking/` (not written by `/modify-poc` — `/promote-poc` and `/setup-env` own it on this path)
 
 ## CRITICAL CONSTRAINTS
 
@@ -287,7 +310,7 @@ Files NEVER touched:
 - **Reads but does NOT modify** `PRD.md` or main `architecture/architecture.md`
 - **`poc/poc-tracking/change-tracking.md` is append-only** — never edit previous entries
 - **`poc/poc-tracking/CHANGELOG.md` is a living document** — merge/update entries for the same area
-- **The command does NOT propagate changes to PRD** — that is a separate future command
+- **The command does NOT propagate changes to PRD** — handled by `/sync-prd`
 
 ## Agents Used
 
@@ -295,6 +318,7 @@ Files NEVER touched:
 |-------|---------|------------|
 | `coding-agent` | Implement POC code changes (POC mode) | Phase 3 — per affected module |
 | `smoke-test-agent` | Verify POC still starts and works | Phase 3 — after all code changes |
+| `architecture-alignment-agent` | Reconcile poc/architecture docs with code reality (per `.claude/rules/architecture-doc-standard.md`) | Phase 3, step 7 — after smoke test, ALL modes incl. `-fix` |
 
 **Agents NOT used in modify-poc:**
 - `unit-test-generator-agent` — No unit tests for POC
@@ -310,6 +334,7 @@ Files NEVER touched:
 - **MUST** read PRD.md for requirement context (but never modify it)
 - **MUST** INVOKE `coding-agent` for code changes with POC mode context
 - **MUST** INVOKE `smoke-test-agent` after all code changes
+- **MUST** INVOKE `architecture-alignment-agent` after the smoke test, in ALL modes — `-fix` included
 - **MUST** update both tracking files after successful implementation
 - **MUST** keep all changes within `poc/` folder
 - **MUST** have exactly one switch (`-change`, `-new`, or `-fix`) — error if none or multiple provided
@@ -322,5 +347,6 @@ Files NEVER touched:
 - [ ] POC architecture and module specs updated (if the change warrants it)
 - [ ] POC still starts and runs (using the project's dev command)
 - [ ] Smoke test passes
+- [ ] Architecture alignment gate ran and returned its verdict (verdict: no-impact | reconciled | reconciled-with-flags; flags surfaced to the user)
 - [ ] `poc/poc-tracking/change-tracking.md` has new log entry with PM's raw request
 - [ ] `poc/poc-tracking/CHANGELOG.md` has detailed technical entry (new or merged with existing)

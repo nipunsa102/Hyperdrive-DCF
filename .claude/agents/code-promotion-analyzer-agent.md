@@ -40,7 +40,7 @@ Read the following files yourself:
 4. All files in `architecture/modules/` — Detailed module specifications
 5. `TECHSTACK.md` — Technology choices (if exists)
 6. `DESIGNGUIDE.md` — Design constraints (if exists)
-7. `POC_PROMO_PREP.md` — Human decisions for data, auth, integrations, deployment (if exists)
+7. `poc/temp/poc_promotion/POC_PROMO_PREP.md` — Human decisions for data, auth, integrations, deployment (if exists)
 
 **POC Code (analysis target):**
 8. All source files in `poc/src/` — The POC implementation

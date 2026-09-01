@@ -1,6 +1,6 @@
 ---
 description: Generate a deployment & environment decision template (DEPLOYMENT.md) for human input before modules and code are generated on the direct path
-model: claude-fable-5
+model: fable
 ---
 
 ## Purpose

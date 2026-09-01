@@ -15,7 +15,7 @@ You will receive context about what development event occurred. Based on this co
 
 1. **module_l1_pass**: A module passed L1 unit tests
    - Data: module_id, module_name, test_count, coverage_percentage
-   - Action: Update module L1 status to `Pass`, record coverage
+   - Action: Set Status to `L1 Pass`, L2 Status to `Pending`, record coverage
 
 2. **module_l1_fail**: A module failed L1 unit tests
    - Data: module_id, module_name, coverage_percentage, failure_reason
@@ -26,18 +26,18 @@ You will receive context about what development event occurred. Based on this co
    - Action: Update module status to `Blocked`
 
 4. **l2_pass**: L2 integration tests passed
-   - Data: tests_passed
-   - Action: Update all module L2 statuses to `Pass`
+   - Data: tests_passed, optionally affected_modules (scopes the update)
+   - Action: Update module L2 statuses to `Pass` — only the listed modules when `affected_modules` is present, all modules otherwise
 
 5. **l2_fail**: L2 integration tests failed
    - Data: tests_passed, tests_failed, affected_modules
    - Action: Update affected module L2 statuses to `Fail`
 
-6. **implementation_complete**: All modules implemented and tested
+6. **implementation_complete** (reserved — no current invoker; kept for future flows such as /deploy-to-prod): All modules implemented and tested
    - Data: summary of all modules
    - Action: Mark all modules as `Complete`
 
-7. **module_deployed**: A module has been deployed to a target environment
+7. **module_deployed** (reserved — no current invoker; kept for future flows such as /deploy-to-prod): A module has been deployed to a target environment
    - Data: module_id, module_name, provider, environment, timestamp
    - Action: Update module status to `Deployed`, record deployment details
 
@@ -66,7 +66,7 @@ When a module fails L1:
 
 ### Step 2: Update Module Tracking
 
-Read and update `/tracking/module-tracking.md`:
+Read and update `tracking/module-tracking.md`:
 
 **File Format:**
 ```markdown
@@ -121,7 +121,7 @@ Read and update `/tracking/module-tracking.md`:
 Add to Blockers section with resolution steps.
 
 #### For `l2_pass`:
-Update all modules that had `L1 Pass` to `Complete`:
+If the event data includes an `affected_modules` list, update only those modules that had `L1 Pass` to `Complete`; when absent, update all modules that had `L1 Pass` to `Complete`:
 ```markdown
 | M{N} | {Name} | Complete | {coverage}% | Pass | {deps} | All tests pass |
 ```
@@ -156,7 +156,7 @@ Event Context (from invoking context)
     ↓
 This agent analyzes the event
     ↓
-Updates /tracking/module-tracking.md
+Updates tracking/module-tracking.md
     ↓
 - Status table updated
 - Summary counts recalculated
@@ -180,8 +180,8 @@ Updates /tracking/module-tracking.md
 5. Add history entry
 
 ### When Processing L2 Pass:
-1. Update all `L1 Pass` modules to `Complete`
-2. Set L2 Status to `Pass`
+1. Honor an optional `affected_modules` list in the event data: when present, flip only those `L1 Pass` modules to `Complete`; when absent, update all `L1 Pass` modules to `Complete`
+2. Set L2 Status to `Pass` (same scope)
 3. Clear any L2-related blockers
 4. Add history entry
 
@@ -194,7 +194,7 @@ Updates /tracking/module-tracking.md
 ## Output Expectations
 
 After successful execution:
-- `/tracking/module-tracking.md` reflects current state
+- `tracking/module-tracking.md` reflects current state
 - Summary counts are accurate
 - Blockers are documented with resolution steps
 - History shows what changed and when

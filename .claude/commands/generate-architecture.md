@@ -1,6 +1,6 @@
 ---
 description: Generate architecture documentation following DCF methodology.
-model: claude-fable-5
+model: fable
 ---
 
 **Switches**: `-special`
@@ -33,6 +33,8 @@ Generates the main architecture documentation for the project: `architecture/arc
    - Read any referenced images, .md or .docx files in OVERVIEW.md
    - Read `TECHSTACK.md` — if a tech stack is specified, use those technology choices to inform architectural decisions. If TECHSTACK.md is empty or only contains template placeholders, keep the architecture technology-agnostic.
 
+4. **Apply `-special`** — if `-special` is provided, treat it as binding constraints/focus areas and record them in the architecture's constraints section.
+
 ### Phase 2: Architecture Generation (HIGH-LEVEL ONLY)
 
 #### Step 1: Create architecture/architecture.md
@@ -50,7 +52,13 @@ Generate the main architecture file as a **conceptual overview** that anyone can
 - **High-level flow diagrams** (for process-heavy applications):
   - User journey flows showing major steps
   - Decision points at a conceptual level
-  - NOT sequence diagrams (those belong in module specs)
+- **Mechanism diagrams** (per `.claude/rules/architecture-doc-standard.md`): every core mechanism
+  — a pipeline, a multi-actor flow, a budget/limits regime, a failure/recovery scheme — gets its
+  understanding-oriented picture HERE: box diagrams, UML-style sequence diagrams, and a limits
+  table with the consequence of each limit. The litmus test is purpose, not diagram type: a
+  sequence diagram that explains how the system fundamentally behaves belongs here; one that
+  specifies retry counts and payload fields belongs in the module spec. A reader must grasp the
+  whole system from this file without opening a module spec.
 - User journeys (what users do, step by step, in plain language)
 - Data concepts (what information exists, NOT how it's stored)
 - How components connect (conceptual, NOT protocols/APIs)
@@ -62,10 +70,10 @@ Generate the main architecture file as a **conceptual overview** that anyone can
 - Individual module specifications
 - API endpoint specifications
 - File format specifications
-- Technical protocols (REST, JSON, HTTP)
+- Technical protocols (REST, JSON, HTTP) (budgets & limits tables — timeouts, payload caps, polling intervals, with the consequence of each — DO belong here, per .claude/rules/architecture-doc-standard.md)
 - Pseudo-code or function signatures
 - Component prop definitions
-- Implementation details
+- Implementation details (budgets & limits tables — timeouts, payload caps, polling intervals, with the consequence of each — DO belong here, per .claude/rules/architecture-doc-standard.md)
 
 **Requirement Traceability - "Implements:" Tags:**
 
@@ -225,14 +233,17 @@ User Action → System Response → Next State
 - Understanding the "happy path" is essential
 
 **DO NOT include in architecture.md:**
-- Sequence diagrams (too detailed - belongs in modules)
+- Implementation-oriented sequence detail — retry counts, header names, payload fields (belongs in
+  modules; understanding-oriented sequence diagrams that explain system behavior DO belong here —
+  see `.claude/rules/architecture-doc-standard.md`)
 - Vendor-specific database schemas or SQL (belongs in modules; logical data model goes in `architecture/data-model.md`)
 - API specifications (belongs in modules)
-- Pseudo-code (belongs in modules)
+- Pseudo-code (belongs in modules — alongside the decision-evidence table for every non-obvious
+  choice, per the standard)
 
 ### Phase 3: Traceability Validation
 
-**Invoke traceability-validator-agent** to verify:
+**Invoke traceability-validator-agent** with `Validation scope: architecture` to verify:
 - All REQ-IDs in PRD.md are referenced by at least one component's "Implements:" tag
 - No invalid REQ-IDs (references to IDs not in PRD.md)
 - Component descriptions align with their assigned requirements
@@ -266,7 +277,7 @@ architecture/
 **Content Rules:**
 - NO module extraction (done by /generate-modules)
 - NO Integration Matrix (done by /generate-modules)
-- NO pseudo-code or technical specs
+- NO pseudo-code or technical specs (understanding-oriented mechanism diagrams and limits tables are required, not forbidden)
 - YES high-level component descriptions
 - YES user perspective
 - YES plain language

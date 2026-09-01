@@ -1,6 +1,6 @@
 ---
 description: Merge validated POC changelog entries into PRD.md (deprecates old PRD)
-model: claude-opus-4-8
+model: opus
 ---
 
 ## Purpose
@@ -151,9 +151,8 @@ START → Phase 1: Prerequisites Check
    ┌──────────────────────────────────────────────┐
    │  1. Read PRD.md — parse full structure       │
    │  2. Read CHANGELOG.md — parse CL entries     │
-   │  3. Classify entries by type                 │
-   │  4. Map entries to PRD sections              │
-   │  5. Do NOT read change-tracking.md           │
+   │  3. Classify entries + map to PRD sections   │
+   │  4. Do NOT read change-tracking.md           │
    └──────────────────────────────────────────────┘
           ↓
    Phase 3: Merge Planning
@@ -224,5 +223,5 @@ Flow position:
 
 ```
 ... → /modify-poc (repeat) → /sync-prd → /prepare-poc-promo → [human fills in] → /promote-poc → /setup-env
-                                          ↑ you are here
+                                 ↑ you are here
 ```

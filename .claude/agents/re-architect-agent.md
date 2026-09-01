@@ -34,7 +34,7 @@ You receive the current conversation context. You MUST read the following files 
 7. `OVERVIEW.md` — Original project context
 8. `TECHSTACK.md` — Technology choices (if exists)
 9. `DESIGNGUIDE.md` — Design constraints (if exists)
-10. `POC_PROMO_PREP.md` — Human decisions for data, auth, integrations, deployment (if exists)
+10. `poc/temp/poc_promotion/POC_PROMO_PREP.md` — Human decisions for data, auth, integrations, deployment (if exists)
 
 ## Process
 
@@ -97,6 +97,15 @@ MODIFIED REQ-IDs (PRD annotations from sync-prd):
    - **Modified requirements**: Update `**Implements:**` tags and descriptions to reflect the new PRD
 
 3. **Preserve Technical Depth**: Keep all details from the main architecture for layers the POC doesn't cover. For a frontend-only POC, preserve backend/API/DB details. For a backend-only POC, preserve frontend/UI details. For a full-stack POC, reconcile both layers and preserve depth from whichever source is more detailed per component.
+
+3b. **Carry Decision Documentation Across** (per `.claude/rules/architecture-doc-standard.md`):
+   designs born during POC work arrive with mechanism pictures (box/UML-style sequence diagrams,
+   budgets & limits tables) in `poc/architecture/architecture.md` and implementation contracts
+   (pseudocode, state machines, "Decisions and their evidence" tables with measurements and CT
+   refs) in the POC module specs. Merge them at the SAME altitudes on the main side: pictures →
+   `architecture/architecture.md`, contracts → the owning `architecture/modules/` spec. The
+   evidence columns are the part code cannot carry — a merge that keeps the requirement rows but
+   drops the WHY has failed this rule. Never flatten a diagram into prose.
 
 4. **Update Requirement Coverage Matrix**: Rebuild to match ALL REQ-IDs in the current PRD. Every REQ-ID must map to at least one component.
 
@@ -173,7 +182,7 @@ After completing all steps, output a structured merge report including:
 - **Architecture changes**: sections and screen layouts added/modified
 - **Module changes**: modules created (bootstrap — all modules are new)
 - **Validation results**: Architecture↔PRD, Modules↔Architecture+PRD, Integration Matrix DAG check, auto-fixes applied
-- **Status**: PASS or FAIL (with reason)
+- **Status**: SUCCESS or FAILED (with reason)
 
 ## Critical Rules
 
